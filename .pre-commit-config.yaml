@@ -1,32 +1,43 @@
 repos:
-  # Backend: ruff lint + format via uv (uses the same ruff version as backend deps)
+  # ───────────────── 后端检查 ─────────────────
+  # 使用 uv 来跑 ruff（lint + format），确保和项目里的 ruff 版本一致
   - repo: local
     hooks:
+      # ruff 代码检查（自动修复）
+      # entry 里已自带 cd backend，你在项目根目录 git commit 即可，无需手动切目录
       - id: ruff
-        name: ruff lint
+        name: ruff 代码检查
         entry: bash -c 'cd backend && uv run ruff check --fix "${@/#backend\//}"' --
         language: system
-        types_or: [python]
-        files: ^backend/
+        types_or: [python]   # 只检查 Python 文件
+        files: ^backend/      # 只检查 backend/ 目录下的
+
+      # ruff 代码格式化（自动调整缩进、空行等）
+      # entry 里已自带 cd backend，你在项目根目录 git commit 即可，无需手动切目录
       - id: ruff-format
-        name: ruff format
+        name: ruff 格式化
         entry: bash -c 'cd backend && uv run ruff format "${@/#backend\//}"' --
         language: system
         types_or: [python]
         files: ^backend/
 
-  # Frontend: eslint + prettier (must run from frontend/ for node_modules resolution)
+  # ───────────────── 前端检查 ─────────────────
+  # 必须从 frontend/ 目录执行，否则找不到 node_modules
   - repo: local
     hooks:
+      # ESLint 代码检查（自动修复 JS/TS 语法和风格问题）
+      # entry 里已自带 cd frontend，你在项目根目录 git commit 即可，无需手动切目录
       - id: frontend-eslint
-        name: eslint (frontend)
+        name: ESLint 代码检查（前端）
         entry: bash -c 'cd frontend && npx eslint --fix "${@/#frontend\//}"' --
         language: system
-        types_or: [javascript, tsx, ts]
+        types_or: [javascript, tsx, ts]  # 只检查 .js/.ts/.tsx
         files: ^frontend/
 
+      # Prettier 代码格式化（统一缩进、引号、换行等）
+      # entry 里已自带 cd frontend，你在项目根目录 git commit 即可，无需手动切目录
       - id: frontend-prettier
-        name: prettier (frontend)
+        name: Prettier 格式化（前端）
         entry: bash -c 'cd frontend && npx prettier --write "${@/#frontend\//}"' --
         language: system
         files: ^frontend/

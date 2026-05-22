@@ -1,59 +1,38 @@
-# DeerFlow - Unified Development Environment
+# DeerFlow 开发命令
 
-.PHONY: help config config-upgrade check install setup doctor detect-thread-boundaries dev dev-daemon start start-daemon stop up down clean docker-init docker-start docker-stop docker-logs docker-logs-frontend docker-logs-gateway
+.PHONY: help setup doctor check config config-upgrade install dev dev-daemon start start-daemon stop clean setup-sandbox detect-thread-boundaries docker-init docker-start docker-stop docker-logs docker-logs-frontend docker-logs-gateway up down
 
-BASH ?= bash
-BACKEND_UV_RUN = cd backend && uv run
-
-# Detect OS for Windows compatibility
+PYTHON ?= python3
 ifeq ($(OS),Windows_NT)
-    SHELL := cmd.exe
-    PYTHON ?= python
-    # Run repo shell scripts through Git Bash when Make is launched from cmd.exe / PowerShell.
-    RUN_WITH_GIT_BASH = call scripts\run-with-git-bash.cmd
+    PYTHON := python
+    RUN_WITH_GIT_BASH := call scripts\run-with-git-bash.cmd
 else
-    PYTHON ?= python3
-    RUN_WITH_GIT_BASH =
+    RUN_WITH_GIT_BASH :=
 endif
 
 help:
-	@echo "DeerFlow Development Commands:"
-	@echo "  make setup           - Interactive setup wizard (recommended for new users)"
-	@echo "  make doctor          - Check configuration and system requirements"
-	@echo "  make config          - Generate local config files (aborts if config already exists)"
-	@echo "  make config-upgrade  - Merge new fields from config.example.yaml into config.yaml"
-	@echo "  make check           - Check if all required tools are installed"
-	@echo "  make detect-thread-boundaries - Inventory async/thread boundary points"
-	@echo "  make install         - Install all dependencies (frontend + backend + pre-commit hooks)"
-	@echo "  make setup-sandbox   - Pre-pull sandbox container image (recommended)"
-	@echo "  make dev             - Start all services in development mode (with hot-reloading)"
-	@echo "  make dev-daemon      - Start dev services in background (daemon mode)"
-	@echo "  make start           - Start all services in production mode (optimized, no hot-reloading)"
-	@echo "  make start-daemon    - Start prod services in background (daemon mode)"
-	@echo "  make stop            - Stop all running services"
-	@echo "  make clean           - Clean up processes and temporary files"
-	@echo ""
-	@echo "Docker Production Commands:"
-	@echo "  make up              - Build and start production Docker services (localhost:2026)"
-	@echo "  make down            - Stop and remove production Docker containers"
-	@echo ""
-	@echo "Docker Development Commands:"
-	@echo "  make docker-init     - Pull the sandbox image"
-	@echo "  make docker-start    - Start Docker services (mode-aware from config.yaml, localhost:2026)"
-	@echo "  make docker-stop     - Stop Docker development services"
-	@echo "  make docker-logs     - View Docker development logs"
-	@echo "  make docker-logs-frontend - View Docker frontend logs"
-	@echo "  make docker-logs-gateway - View Docker gateway logs"
+	@echo "  setup        初始化向导"
+	@echo "  doctor       系统诊断"
+	@echo "  check        检查依赖"
+	@echo "  config       生成配置文件"
+	@echo "  config-upgrade  合并配置更新"
+	@echo "  install      安装前后端依赖 + pre-commit"
+	@echo "  dev          启动（开发模式）"
+	@echo "  start        启动（生产模式）"
+	@echo "  stop         停止所有服务"
+	@echo "  clean        清理临时文件"
+	@echo "  setup-sandbox  预拉 sandbox 镜像"
+	@echo "  docker-*     Docker 开发"
+	@echo "  up/down      生产 Docker"
 
-## Setup & Diagnosis
 setup:
-	@$(BACKEND_UV_RUN) python ../scripts/setup_wizard.py
+	@cd backend && uv run python ../scripts/setup_wizard.py
 
 doctor:
-	@$(BACKEND_UV_RUN) python ../scripts/doctor.py
+	@cd backend && uv run python ../scripts/doctor.py
 
-detect-thread-boundaries:
-	@$(PYTHON) ./scripts/detect_thread_boundaries.py
+check:
+	@$(PYTHON) ./scripts/check.py
 
 config:
 	@$(PYTHON) ./scripts/configure.py
@@ -61,127 +40,61 @@ config:
 config-upgrade:
 	@$(RUN_WITH_GIT_BASH) ./scripts/config-upgrade.sh
 
-# Check required tools
-check:
-	@$(PYTHON) ./scripts/check.py
+detect-thread-boundaries:
+	@$(PYTHON) ./scripts/detect_thread_boundaries.py
 
-# Install all dependencies
 install:
-	@echo "Installing backend dependencies..."
 	@cd backend && uv sync
-	@echo "Installing frontend dependencies..."
 	@cd frontend && pnpm install
-	@echo "Installing pre-commit hooks..."
-	@$(BACKEND_UV_RUN) --with pre-commit pre-commit install
-	@echo "✓ All dependencies installed"
-	@echo ""
-	@echo "=========================================="
-	@echo "  Optional: Pre-pull Sandbox Image"
-	@echo "=========================================="
-	@echo ""
-	@echo "If you plan to use Docker/Container-based sandbox, you can pre-pull the image:"
-	@echo "  make setup-sandbox"
-	@echo ""
+	@pre-commit install
+	@echo "✔ 完成"
 
-# Pre-pull sandbox Docker image (optional but recommended)
 setup-sandbox:
-	@echo "=========================================="
-	@echo "  Pre-pulling Sandbox Container Image"
-	@echo "=========================================="
-	@echo ""
 	@IMAGE=$$(grep -A 20 "# sandbox:" config.yaml 2>/dev/null | grep "image:" | awk '{print $$2}' | head -1); \
-	if [ -z "$$IMAGE" ]; then \
-		IMAGE="enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:latest"; \
-		echo "Using default image: $$IMAGE"; \
-	else \
-		echo "Using configured image: $$IMAGE"; \
-	fi; \
-	echo ""; \
-	if command -v container >/dev/null 2>&1 && [ "$$(uname)" = "Darwin" ]; then \
-		echo "Detected Apple Container on macOS, pulling image..."; \
-		container image pull "$$IMAGE" || echo "⚠ Apple Container pull failed, will try Docker"; \
-	fi; \
-	if command -v docker >/dev/null 2>&1; then \
-		echo "Pulling image using Docker..."; \
-		if docker pull "$$IMAGE"; then \
-			echo ""; \
-			echo "✓ Sandbox image pulled successfully"; \
-		else \
-			echo ""; \
-			echo "⚠ Failed to pull sandbox image (this is OK for local sandbox mode)"; \
-		fi; \
-	else \
-		echo "✗ Neither Docker nor Apple Container is available"; \
-		echo "  Please install Docker: https://docs.docker.com/get-docker/"; \
-		exit 1; \
-	fi
+	[ -z "$$IMAGE" ] && IMAGE="enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:latest"; \
+	echo "→ $$IMAGE"; \
+	command -v container >/dev/null 2>&1 && [ "$$(uname)" = "Darwin" ] && container image pull "$$IMAGE" || true; \
+	command -v docker >/dev/null 2>&1 && docker pull "$$IMAGE" || { echo "✗ 未找到 Docker"; exit 1; }
 
-# Start all services in development mode (with hot-reloading)
-dev:
-	@$(PYTHON) ./scripts/check.py
+dev: check
 	@$(RUN_WITH_GIT_BASH) ./scripts/serve.sh --dev
 
-# Start all services in production mode (with optimizations)
-start:
-	@$(PYTHON) ./scripts/check.py
+start: check
 	@$(RUN_WITH_GIT_BASH) ./scripts/serve.sh --prod
 
-# Start all services in daemon mode (background)
-dev-daemon:
-	@$(PYTHON) ./scripts/check.py
+dev-daemon: check
 	@$(RUN_WITH_GIT_BASH) ./scripts/serve.sh --dev --daemon
 
-# Start prod services in daemon mode (background)
-start-daemon:
-	@$(PYTHON) ./scripts/check.py
+start-daemon: check
 	@$(RUN_WITH_GIT_BASH) ./scripts/serve.sh --prod --daemon
 
-# Stop all services
 stop:
 	@$(RUN_WITH_GIT_BASH) ./scripts/serve.sh --stop
 
-# Clean up
 clean: stop
-	@echo "Cleaning up..."
-	@-rm -rf backend/.deer-flow 2>/dev/null || true
-	@-rm -rf backend/.langgraph_api 2>/dev/null || true
-	@-rm -rf logs/*.log 2>/dev/null || true
-	@echo "✓ Cleanup complete"
+	@rm -rf backend/.deer-flow backend/.langgraph_api logs/*.log 2>/dev/null; true
+	@echo "✔ 完成"
 
-# ==========================================
-# Docker Development Commands
-# ==========================================
-
-# Initialize Docker containers and install dependencies
 docker-init:
 	@$(RUN_WITH_GIT_BASH) ./scripts/docker.sh init
 
-# Start Docker development environment
 docker-start:
 	@$(RUN_WITH_GIT_BASH) ./scripts/docker.sh start
 
-# Stop Docker development environment
 docker-stop:
 	@$(RUN_WITH_GIT_BASH) ./scripts/docker.sh stop
 
-# View Docker development logs
 docker-logs:
 	@$(RUN_WITH_GIT_BASH) ./scripts/docker.sh logs
 
-# View Docker development logs
 docker-logs-frontend:
 	@$(RUN_WITH_GIT_BASH) ./scripts/docker.sh logs --frontend
+
 docker-logs-gateway:
 	@$(RUN_WITH_GIT_BASH) ./scripts/docker.sh logs --gateway
 
-# ==========================================
-# Production Docker Commands
-# ==========================================
-
-# Build and start production services
 up:
 	@$(RUN_WITH_GIT_BASH) ./scripts/deploy.sh
 
-# Stop and remove production containers
 down:
 	@$(RUN_WITH_GIT_BASH) ./scripts/deploy.sh down

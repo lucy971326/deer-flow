@@ -1,87 +1,87 @@
 # DeerFlow Install
 
-This file is for coding agents. If the DeerFlow repository is not already cloned and open, clone `https://github.com/bytedance/deer-flow.git` first, then continue from the repository root.
+本文档面向 coding agents。如果 DeerFlow 仓库尚未克隆并打开，请先克隆 `https://github.com/bytedance/deer-flow.git`，然后从仓库根目录继续。
 
-## Goal
+## 目标
 
-Bootstrap a DeerFlow local development workspace on the user's machine with the least risky path available.
+在用户本地机器上以最低风险的方式引导（bootstrap）一个 DeerFlow local development workspace。
 
-Default preference:
+默认优先级：
 
 1. Docker development environment
 2. Local development environment
 
-Do not assume API keys or model credentials exist. Set up everything that can be prepared safely, then stop with a concise summary of what the user still needs to provide.
+不要假设 API keys 或 model credentials 已存在。安全地准备好一切前置条件后停止，并向用户简洁总结仍需提供的内容。
 
-## Operating Rules
+## 操作规则
 
-- Be idempotent. Re-running this document should not damage an existing setup.
-- Prefer existing repo commands over ad hoc shell commands.
-- Do not use `sudo` or install system packages without explicit user approval.
-- Do not overwrite existing user config values unless the user asks.
-- If a step fails, stop, explain the blocker, and provide the smallest next action.
-- If multiple setup paths are possible, prefer Docker when Docker is already available.
+- Be idempotent. 重复执行本文档不应破坏已有配置。
+- 优先使用仓库现有命令，而非临时 shell 命令。
+- 未经用户明确授权，不得使用 `sudo` 或安装系统包。
+- 除非用户要求，否则不要覆盖已有用户配置值。
+- 如果某步骤失败，停止，解释阻塞点，并提供最小化的下一步操作。
+- 如果存在多条设置路径，在 Docker 可用时优先选择 Docker。
 
-## Success Criteria
+## 成功标准
 
-Consider the setup successful when all of the following are true:
+满足以下全部条件时视为设置成功：
 
-- The DeerFlow repository is cloned and the current working directory is the repo root.
-- `config.yaml` exists.
-- For Docker setup, `make docker-init` completed successfully and Docker prerequisites are prepared, but services are not assumed to be running yet.
-- For local setup, `make check` passed or reported no missing prerequisites, and `make install` completed successfully.
-- The user receives the exact next command to launch DeerFlow.
-- The user also receives any missing model configuration or referenced environment variable names from `config.yaml`, without inspecting secret-bearing files for actual values.
+- DeerFlow 仓库已克隆，且当前工作目录为仓库根目录。
+- `config.yaml` 存在。
+- Docker setup：`make docker-init` 执行成功，Docker prerequisites 已准备就绪，但不假设服务已在运行。
+- Local setup：`make check` 通过或报告无缺失 prerequisites，`make install` 执行成功。
+- 用户收到启动 DeerFlow 的精确下一条命令。
+- 用户同时收到 `config.yaml` 中缺失的 model 配置项或引用的环境变量名，但不检查包含 secret 的文件中的实际值。
 
-## Steps
+## 步骤
 
-- If the current directory is not the DeerFlow repository root, clone `https://github.com/bytedance/deer-flow.git` if needed, then change into the repository root.
-- Confirm the current directory is the DeerFlow repository root by checking that `Makefile`, `backend/`, `frontend/`, and `config.example.yaml` exist.
-- Detect whether `config.yaml` already exists.
-- If `config.yaml` does not exist, run `make config`.
-- Detect whether Docker is available and the daemon is reachable with `docker info`.
-- If Docker is available:
-  - Run `make docker-init`.
-  - Treat this as Docker prerequisite preparation only. Do not claim that app services, compose validation, or image builds have already succeeded.
-  - Do not start long-running services unless the user explicitly asks or this setup request clearly includes launch verification.
-  - Tell the user the recommended next command is `make docker-start`.
-- If Docker is not available:
-  - Run `make check`.
-  - If `make check` reports missing system dependencies such as `node`, `pnpm`, `uv`, or `nginx`, stop and report the missing tools instead of attempting privileged installs.
-  - If prerequisites are satisfied, run `make install`.
-  - Tell the user the recommended next command is `make dev`.
-- Inspect `config.yaml` only for missing model entries or referenced environment variable placeholders. Do not read `.env`, `frontend/.env`, or other secret-bearing files.
-- If no model is configured, tell the user they must add at least one entry under `models` in `config.yaml`.
-- If `config.yaml` references variables such as `$OPENAI_API_KEY`, tell the user which variable names still need real values, but do not verify them by opening secret-bearing files.
-- If the repository already appears configured, avoid repeating expensive work unless it is necessary to verify the environment.
+- 如果当前目录不是 DeerFlow 仓库根目录，按需克隆 `https://github.com/bytedance/deer-flow.git`，然后切换到仓库根目录。
+- 通过检查 `Makefile`、`backend/`、`frontend/` 和 `config.example.yaml` 是否存在来确认当前目录是 DeerFlow 仓库根目录。
+- 检测 `config.yaml` 是否已存在。
+- 如果 `config.yaml` 不存在，运行 `make config`。
+- 检测 Docker 是否可用且 daemon 可通过 `docker info` 访问。
+- 如果 Docker 可用：
+  - 运行 `make docker-init`。
+  - 将此视为 Docker prerequisite preparation。仅此而已，不要声称 app services、compose validation 或 image builds 已成功。
+  - 除非用户明确要求或此设置请求明确包含 launch verification，否则不要启动 long-running services。
+  - 告知用户推荐的下一条命令是 `make docker-start`。
+- 如果 Docker 不可用：
+  - 运行 `make check`。
+  - 如果 `make check` 报告缺失系统依赖（如 `node`、`pnpm`、`uv` 或 `nginx`），停止并报告缺失的工具，不尝试 privileged installs。
+  - 如果 prerequisites 满足，运行 `make install`。
+  - 告知用户推荐的下一条命令是 `make dev`。
+- 仅检查 `config.yaml` 中缺失的 model 条目或引用的环境变量占位符。不要读取 `.env`、`frontend/.env` 或其他包含 secret 的文件。
+- 如果未配置任何 model，告知用户必须在 `config.yaml` 的 `models` 下至少添加一个条目。
+- 如果 `config.yaml` 引用了类似 `$OPENAI_API_KEY` 的变量，告知用户哪些变量名仍需真实值，但不通过打开包含 secret 的文件来验证。
+- 如果仓库看起来已经配置好，除非必要验证环境，否则不要重复耗时工作。
 
-## Verification
+## 验证
 
-Use the lightest verification that matches the chosen setup path.
+使用与所选设置路径相匹配的最轻量级验证方式。
 
-For Docker setup:
+Docker setup：
 
-- Confirm `make docker-init` completed successfully.
-- Confirm `config.yaml` exists.
-- State explicitly that Docker services were not started and `make docker-start` is still the first real launch step.
-- Do not leave background services running unless the user asked for that.
+- 确认 `make docker-init` 执行成功。
+- 确认 `config.yaml` 存在。
+- 明确说明 Docker services 未启动，`make docker-start` 仍是第一个真正的启动步骤。
+- 除非用户要求，否则不要让 background services 保持运行。
 
-For local setup:
+Local setup：
 
-- Confirm `make install` completed successfully.
-- Confirm `config.yaml` exists.
-- Do not leave background services running unless the user asked for that.
+- 确认 `make install` 执行成功。
+- 确认 `config.yaml` 存在。
+- 除非用户要求，否则不要让 background services 保持运行。
 
-## Final Response Format
+## 最终响应格式
 
-Return a short status report with:
+返回简短状态报告，包含：
 
-1. Setup path used: Docker or local
-2. Setup level reached: Docker prerequisites prepared or local dependencies installed
-3. Files created or detected: for example `config.yaml`
-4. Remaining user action: model config, env var values, auth files, or nothing
-5. Exact next command to start DeerFlow
+1. 使用的设置路径：Docker 或 local
+2. 达到的设置级别：Docker prerequisites prepared 或 local dependencies installed
+3. 创建或检测到的文件：例如 `config.yaml`
+4. 剩余用户操作：model config、env var values、auth files 或 nothing
+5. 启动 DeerFlow 的精确下一条命令
 
-## EXECUTE NOW
+## 立即执行
 
-Complete the steps above. When finished, stop after the setup boundary and report status instead of continuing into unrelated project work.
+完成上述步骤。完成后在设置边界处停止并报告状态，不要继续进入无关的项目工作。

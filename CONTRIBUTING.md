@@ -1,19 +1,19 @@
 # Contributing to DeerFlow
 
-Thank you for your interest in contributing to DeerFlow! This guide will help you set up your development environment and understand our development workflow.
+感谢您对 DeerFlow 贡献感兴趣！本指南将帮助您设置开发环境并了解我们的开发工作流程。
 
 ## Development Environment Setup
 
-We offer two development environments. **Docker is recommended** for the most consistent and hassle-free experience.
+我们提供两种开发环境。**推荐使用 Docker**，以获得最一致、最顺畅的体验。
 
-### Option 1: Docker Development (Recommended)
+### Option 1: Docker Development（推荐）
 
-Docker provides a consistent, isolated environment with all dependencies pre-configured. No need to install Node.js, Python, or nginx on your local machine.
+Docker 提供了一个一致的、隔离的环境，所有依赖都已预配置。无需在本地安装 Node.js、Python 或 nginx。
 
 #### Prerequisites
 
-- Docker Desktop or Docker Engine
-- pnpm (for caching optimization)
+- Docker Desktop 或 Docker Engine
+- pnpm（用于缓存优化）
 
 #### Setup Steps
 
@@ -27,26 +27,26 @@ Docker provides a consistent, isolated environment with all dependencies pre-con
    # or edit config.yaml directly
    ```
 
-2. **Initialize Docker environment** (first time only):
+2. **Initialize Docker environment**（仅首次需要）:
    ```bash
    make docker-init
    ```
-   This will:
+   这将：
    - Build Docker images
-   - Install frontend dependencies (pnpm)
-   - Install backend dependencies (uv)
-   - Share pnpm cache with host for faster builds
+   - Install frontend dependencies（pnpm）
+   - Install backend dependencies（uv）
+   - 将 pnpm cache 与 host 共享以加快构建速度
 
 3. **Start development services**:
    ```bash
    make docker-start
    ```
-   `make docker-start` reads `config.yaml` and starts `provisioner` only for provisioner/Kubernetes sandbox mode.
+   `make docker-start` 读取 `config.yaml`，仅为 provisioner/Kubernetes sandbox mode 启动 `provisioner`。
 
-   All services will start with hot-reload enabled:
-   - Frontend changes are automatically reloaded
-   - Backend changes trigger automatic restart
-   - Gateway-hosted LangGraph-compatible runtime supports hot-reload
+   所有 services 将启用 hot-reload：
+   - Frontend 更改会自动 reload
+   - Backend 更改会触发自动 restart
+   - Gateway-hosted LangGraph-compatible runtime 支持 hot-reload
 
 4. **Access the application**:
    - Web Interface: http://localhost:2026
@@ -70,7 +70,7 @@ make docker-logs-frontend
 make docker-logs-gateway
 ```
 
-If Docker builds are slow in your network, you can override the default package registries before running `make docker-init` or `make docker-start`:
+如果 Docker build 在您的网络中较慢，您可以在运行 `make docker-init` 或 `make docker-start` 之前覆盖默认的 package registries：
 
 ```bash
 export UV_INDEX_URL=https://pypi.org/simple
@@ -79,49 +79,49 @@ export NPM_REGISTRY=https://registry.npmjs.org
 
 #### Recommended host resources
 
-Use these as practical starting points for development and review environments:
+将这些作为开发和 review 环境的实际起点：
 
 | Scenario | Starting point | Recommended | Notes |
 |---------|-----------|------------|-------|
-| `make dev` on one machine | 4 vCPU, 8 GB RAM | 8 vCPU, 16 GB RAM | Best when DeerFlow uses hosted model APIs. |
-| `make docker-start` review environment | 4 vCPU, 8 GB RAM | 8 vCPU, 16 GB RAM | Docker image builds and sandbox containers need extra headroom. |
-| Shared Linux test server | 8 vCPU, 16 GB RAM | 16 vCPU, 32 GB RAM | Prefer this for heavier multi-agent runs or multiple reviewers. |
+| `make dev` on one machine | 4 vCPU, 8 GB RAM | 8 vCPU, 16 GB RAM | DeerFlow 使用 hosted model APIs 时效果最佳。 |
+| `make docker-start` review environment | 4 vCPU, 8 GB RAM | 8 vCPU, 16 GB RAM | Docker image builds 和 sandbox containers 需要额外的 headroom。 |
+| Shared Linux test server | 8 vCPU, 16 GB RAM | 16 vCPU, 32 GB RAM | 对于更重的 multi-agent runs 或多个 reviewers，更适合选择这个配置。 |
 
-`2 vCPU / 4 GB` environments often fail to start reliably or become unresponsive under normal DeerFlow workloads.
+`2 vCPU / 4 GB` 环境通常无法可靠启动，或在正常 DeerFlow workloads 下变得无响应。
 
 #### Linux: Docker daemon permission denied
 
-If `make docker-init`, `make docker-start`, or `make docker-stop` fails on Linux with an error like below, your current user likely does not have permission to access the Docker daemon socket:
+如果在 Linux 上 `make docker-init`、`make docker-start` 或 `make docker-stop` 失败并显示类似以下错误，您当前的用户可能没有访问 Docker daemon socket 的权限：
 
 ```text
 unable to get image 'deer-flow-gateway': permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock
 ```
 
-Recommended fix: add your current user to the `docker` group so Docker commands work without `sudo`.
+推荐的修复方法：将您当前的用户添加到 `docker` 组，使 Docker 命令无需 `sudo` 即可工作。
 
-1. Confirm the `docker` group exists:
+1. 确认 `docker` 组存在：
    ```bash
    getent group docker
    ```
-2. Add your current user to the `docker` group:
+2. 将当前用户添加到 `docker` 组：
    ```bash
    sudo usermod -aG docker $USER
    ```
-3. Apply the new group membership. The most reliable option is to log out completely and then log back in. If you want to refresh the current shell session instead, run:
+3. 应用新的组成员身份。最可靠的方式是完全注销然后重新登录。如果希望刷新当前 shell session，请运行：
    ```bash
    newgrp docker
    ```
-4. Verify Docker access:
+4. 验证 Docker 访问：
    ```bash
    docker ps
    ```
-5. Retry the DeerFlow command:
+5. 重试 DeerFlow 命令：
    ```bash
    make docker-stop
    make docker-start
    ```
 
-If `docker ps` still reports a permission error after `usermod`, fully log out and log back in before retrying.
+如果 `docker ps` 在 `usermod` 后仍然报告权限错误，请在重试前完全注销并重新登录。
 
 #### Docker Architecture
 
@@ -137,7 +137,7 @@ Docker Compose (deer-flow-dev)
 
 **Benefits of Docker Development**:
 - ✅ Consistent environment across different machines
-- ✅ No need to install Node.js, Python, or nginx locally
+- ✅ 无需在本地安装 Node.js、Python 或 nginx
 - ✅ Isolated dependencies and services
 - ✅ Easy cleanup and reset
 - ✅ Hot-reload for all services
@@ -145,11 +145,11 @@ Docker Compose (deer-flow-dev)
 
 ### Option 2: Local Development
 
-If you prefer to run services directly on your machine:
+如果您偏好直接在机器上运行 services：
 
 #### Prerequisites
 
-Check that you have all required tools installed:
+检查是否已安装所有必需的工具：
 
 ```bash
 make check
@@ -158,19 +158,19 @@ make check
 Required tools:
 - Node.js 22+
 - pnpm
-- uv (Python package manager)
+- uv（Python package manager）
 - nginx
 
 #### Setup Steps
 
-1. **Configure the application** (same as Docker setup above)
+1. **Configure the application**（与 Docker setup 相同）
 
-2. **Install dependencies** (this also sets up pre-commit hooks):
+2. **Install dependencies**（这也会设置 pre-commit hooks）：
    ```bash
    make install
    ```
 
-3. **Run development server** (starts all services with nginx):
+3. **Run development server**（启动所有 services 并使用 nginx）：
    ```bash
    make dev
    ```
@@ -181,7 +181,7 @@ Required tools:
 
 #### Manual Service Control
 
-If you need to start services individually:
+如果需要单独启动 services：
 
 1. **Start backend service**:
    ```bash
@@ -205,7 +205,7 @@ If you need to start services individually:
 
 #### Nginx Configuration
 
-The nginx configuration provides:
+nginx configuration 提供：
 - Unified entry point on port 2026
 - Rewrites `/api/langgraph/*` to Gateway's LangGraph-compatible API (8001)
 - Routes other `/api/*` endpoints to Gateway API (8001)
@@ -263,7 +263,7 @@ Nginx (port 2026) ← Unified entry point
 
 2. **Make your changes** with hot-reload enabled
 
-3. **Format and lint your code** (CI will reject unformatted code):
+3. **Format and lint your code**（CI will reject unformatted code）：
    ```bash
    # Backend
    cd backend
@@ -305,17 +305,17 @@ make test-e2e
 
 ### PR Regression Checks
 
-Every pull request triggers the following CI workflows:
+每个 pull request 都会触发以下 CI workflows：
 
 - **Backend unit tests** — [.github/workflows/backend-unit-tests.yml](.github/workflows/backend-unit-tests.yml)
 - **Frontend unit tests** — [.github/workflows/frontend-unit-tests.yml](.github/workflows/frontend-unit-tests.yml)
-- **Frontend E2E tests** — [.github/workflows/e2e-tests.yml](.github/workflows/e2e-tests.yml) (triggered only when `frontend/` files change)
+- **Frontend E2E tests** — [.github/workflows/e2e-tests.yml](.github/workflows/e2e-tests.yml)（仅在 `frontend/` 文件更改时触发）
 
 ## Code Style
 
-- **Backend (Python)**: We use `ruff` for linting and formatting. Run `make format` before committing.
-- **Frontend (TypeScript)**: We use ESLint and Prettier. Run `pnpm format:write` before committing.
-- CI enforces formatting — PRs with unformatted code will fail the lint check.
+- **Backend (Python)**: 我们使用 `ruff` 进行 linting 和 formatting。在 commit 前运行 `make format`。
+- **Frontend (TypeScript)**: 我们使用 ESLint 和 Prettier。在 commit 前运行 `pnpm format:write`。
+- CI 强制执行 formatting — 带有未格式化代码的 PR 将失败 lint check。
 
 ## Documentation
 
