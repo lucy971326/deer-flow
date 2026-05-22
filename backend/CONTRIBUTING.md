@@ -1,72 +1,72 @@
-# Contributing to DeerFlow Backend
+# 为 DeerFlow Backend 贡献
 
-Thank you for your interest in contributing to DeerFlow! This document provides guidelines and instructions for contributing to the backend codebase.
+感谢您对 DeerFlow 的兴趣！本文档提供贡献后端代码库的指南和说明。
 
-## Table of Contents
+## 目录
 
-- [Getting Started](#getting-started)
-- [Development Setup](#development-setup)
-- [Project Structure](#project-structure)
-- [Code Style](#code-style)
-- [Making Changes](#making-changes)
-- [Testing](#testing)
-- [Pull Request Process](#pull-request-process)
-- [Architecture Guidelines](#architecture-guidelines)
+- [入门](#入门)
+- [开发环境设置](#开发环境设置)
+- [项目结构](#项目结构)
+- [代码风格](#代码风格)
+- [进行更改](#进行更改)
+- [测试](#测试)
+- [Pull Request 流程](#pull-request-流程)
+- [架构指南](#架构指南)
 
-## Getting Started
+## 入门
 
-### Prerequisites
+### 前置条件
 
-- Python 3.12 or higher
-- [uv](https://docs.astral.sh/uv/) package manager
+- Python 3.12 或更高
+- [uv](https://docs.astral.sh/uv/) 包管理器
 - Git
-- Docker (optional, for Docker sandbox testing)
+- Docker（可选，用于 Docker sandbox 测试）
 
-### Fork and Clone
+### Fork 和 Clone
 
-1. Fork the repository on GitHub
-2. Clone your fork locally:
+1. 在 GitHub 上 Fork 仓库
+2. 本地克隆你的 fork：
    ```bash
    git clone https://github.com/YOUR_USERNAME/deer-flow.git
    cd deer-flow
    ```
 
-## Development Setup
+## 开发环境设置
 
-### Install Dependencies
+### 安装依赖
 
 ```bash
-# From project root
+# 从项目根目录
 cp config.example.yaml config.yaml
 
-# Install backend dependencies
+# 安装后端依赖
 cd backend
 make install
 ```
 
-### Configure Environment
+### 配置环境
 
-Set up your API keys for testing:
+设置您的 API keys 用于测试：
 
 ```bash
 export OPENAI_API_KEY="your-api-key"
-# Add other keys as needed
+# 根据需要添加其他 keys
 ```
 
-### Run the Development Server
+### 运行开发服务器
 
 ```bash
-# Gateway API + embedded agent runtime
+# Gateway API + 嵌入式 agent 运行时
 make dev
 ```
 
-## Project Structure
+## 项目结构
 
 ```
 backend/src/
-├── agents/                  # Agent system
-│   ├── lead_agent/         # Main agent implementation
-│   │   └── agent.py        # Agent factory and creation
+├── agents/                  # Agent 系统
+│   ├── lead_agent/         # 主 agent 实现
+│   │   └── agent.py        # Agent 工厂和创建
 │   ├── middlewares/        # Agent middlewares
 │   │   ├── thread_data_middleware.py
 │   │   ├── sandbox_middleware.py
@@ -74,81 +74,81 @@ backend/src/
 │   │   ├── uploads_middleware.py
 │   │   ├── view_image_middleware.py
 │   │   └── clarification_middleware.py
-│   └── thread_state.py     # Thread state definition
+│   └── thread_state.py     # Thread state 定义
 │
 ├── gateway/                 # FastAPI Gateway
-│   ├── app.py              # FastAPI application
-│   └── routers/            # Route handlers
-│       ├── models.py       # /api/models endpoints
-│       ├── mcp.py          # /api/mcp endpoints
-│       ├── skills.py       # /api/skills endpoints
+│   ├── app.py              # FastAPI 应用
+│   └── routers/            # 路由处理器
+│       ├── models.py       # /api/models 端点
+│       ├── mcp.py          # /api/mcp 端点
+│       ├── skills.py       # /api/skills 端点
 │       ├── artifacts.py    # /api/threads/.../artifacts
 │       └── uploads.py      # /api/threads/.../uploads
 │
-├── sandbox/                 # Sandbox execution
-│   ├── __init__.py         # Sandbox interface
-│   ├── local.py            # Local sandbox provider
-│   └── tools.py            # Sandbox tools (bash, file ops)
+├── sandbox/                 # Sandbox 执行
+│   ├── __init__.py         # Sandbox 接口
+│   ├── local.py            # 本地 sandbox provider
+│   └── tools.py            # Sandbox tools（bash, 文件操作）
 │
 ├── tools/                   # Agent tools
-│   └── builtins/           # Built-in tools
+│   └── builtins/           # 内置 tools
 │       ├── present_file_tool.py
 │       ├── ask_clarification_tool.py
 │       └── view_image_tool.py
 │
-├── mcp/                     # MCP integration
-│   └── manager.py          # MCP server management
+├── mcp/                     # MCP 集成
+│   └── manager.py          # MCP server 管理
 │
-├── models/                  # Model system
-│   └── factory.py          # Model factory
+├── models/                  # Model 系统
+│   └── factory.py          # Model 工厂
 │
-├── skills/                  # Skills system
-│   └── loader.py           # Skills loader
+├── skills/                  # Skills 系统
+│   └── loader.py           # Skills 加载器
 │
-├── config/                  # Configuration
-│   ├── app_config.py       # Main app config
-│   ├── extensions_config.py # Extensions config
+├── config/                  # 配置
+│   ├── app_config.py       # 主应用配置
+│   ├── extensions_config.py # 扩展配置
 │   └── summarization_config.py
 │
 ├── community/               # Community tools
-│   ├── tavily/             # Tavily web search
-│   ├── jina/               # Jina web fetch
-│   ├── firecrawl/          # Firecrawl scraping
+│   ├── tavily/             # Tavily 网络搜索
+│   ├── jina/               # Jina 网络获取
+│   ├── firecrawl/          # Firecrawl 抓取
 │   └── aio_sandbox/        # Docker sandbox
 │
-├── reflection/              # Dynamic loading
-│   └── __init__.py         # Module resolution
+├── reflection/              # 动态加载
+│   └── __init__.py         # 模块解析
 │
-└── utils/                   # Utilities
+└── utils/                   # 工具函数
     └── __init__.py
 ```
 
-## Code Style
+## 代码风格
 
-### Linting and Formatting
+### Linting 和格式化
 
-We use `ruff` for both linting and formatting:
+我们使用 `ruff` 进行 linting 和格式化：
 
 ```bash
-# Check for issues
+# 检查问题
 make lint
 
-# Auto-fix and format
+# 自动修复和格式化
 make format
 ```
 
-### Style Guidelines
+### 风格指南
 
-- **Line length**: 240 characters maximum
-- **Python version**: 3.12+ features allowed
-- **Type hints**: Use type hints for function signatures
-- **Quotes**: Double quotes for strings
-- **Indentation**: 4 spaces (no tabs)
-- **Imports**: Group by standard library, third-party, local
+- **行长度**：最多 240 个字符
+- **Python 版本**：允许 3.12+ 特性
+- **类型提示**：为函数签名使用类型提示
+- **引号**：字符串使用双引号
+- **缩进**：4 个空格（无 tabs）
+- **导入**：按标准库、第三方、本地分组
 
 ### Docstrings
 
-Use docstrings for public functions and classes:
+为公共函数和类使用 docstrings：
 
 ```python
 def create_chat_model(name: str, thinking_enabled: bool = False) -> BaseChatModel:
@@ -167,20 +167,20 @@ def create_chat_model(name: str, thinking_enabled: bool = False) -> BaseChatMode
     ...
 ```
 
-## Making Changes
+## 进行更改
 
-### Branch Naming
+### 分支命名
 
-Use descriptive branch names:
+使用描述性的分支名称：
 
-- `feature/add-new-tool` - New features
-- `fix/sandbox-timeout` - Bug fixes
-- `docs/update-readme` - Documentation
-- `refactor/config-system` - Code refactoring
+- `feature/add-new-tool` - 新功能
+- `fix/sandbox-timeout` - Bug 修复
+- `docs/update-readme` - 文档
+- `refactor/config-system` - 代码重构
 
-### Commit Messages
+### Commit 消息
 
-Write clear, concise commit messages:
+写清楚、简洁的 commit 消息：
 
 ```
 feat: add support for Claude 3.5 model
@@ -190,25 +190,25 @@ feat: add support for Claude 3.5 model
 - Add tests for new model
 ```
 
-Prefix types:
-- `feat:` - New feature
-- `fix:` - Bug fix
-- `docs:` - Documentation
-- `refactor:` - Code refactoring
-- `test:` - Tests
-- `chore:` - Build/config changes
+前缀类型：
+- `feat:` - 新功能
+- `fix:` - Bug 修复
+- `docs:` - 文档
+- `refactor:` - 代码重构
+- `test:` - 测试
+- `chore:` - 构建/配置更改
 
-## Testing
+## 测试
 
-### Running Tests
+### 运行测试
 
 ```bash
 uv run pytest
 ```
 
-### Writing Tests
+### 编写测试
 
-Place tests in the `tests/` directory mirroring the source structure:
+将测试放在 `tests/` 目录中，镜像源结构：
 
 ```
 tests/
@@ -220,7 +220,7 @@ tests/
     └── test_models_router.py
 ```
 
-Example test:
+示例测试：
 
 ```python
 import pytest
@@ -237,36 +237,36 @@ def test_create_chat_model_with_invalid_name():
         create_chat_model("nonexistent-model")
 ```
 
-## Pull Request Process
+## Pull Request 流程
 
-### Before Submitting
+### 提交前
 
-1. **Ensure tests pass**: `uv run pytest`
-2. **Run linter**: `make lint`
-3. **Format code**: `make format`
-4. **Update documentation** if needed
+1. **确保测试通过**：`uv run pytest`
+2. **运行 linter**：`make lint`
+3. **格式化代码**：`make format`
+4. **如需要更新文档**
 
-### PR Description
+### PR 描述
 
-Include in your PR description:
+在您的 PR 描述中包含：
 
-- **What**: Brief description of changes
-- **Why**: Motivation for the change
-- **How**: Implementation approach
-- **Testing**: How you tested the changes
+- **What**：更改的简要描述
+- **Why**：更改的动机
+- **How**：实现方法
+- **Testing**：如何测试更改
 
-### Review Process
+### 审查流程
 
-1. Submit PR with clear description
-2. Address review feedback
-3. Ensure CI passes
-4. Maintainer will merge when approved
+1. 提交带有清晰描述的 PR
+2. 解决审查反馈
+3. 确保 CI 通过
+4. 维护者在批准后合并
 
-## Architecture Guidelines
+## 架构指南
 
-### Adding New Tools
+### 添加新 Tools
 
-1. Create tool in `packages/harness/deerflow/tools/builtins/` or `packages/harness/deerflow/community/`:
+1. 在 `packages/harness/deerflow/tools/builtins/` 或 `packages/harness/deerflow/community/` 创建 tool：
 
 ```python
 # packages/harness/deerflow/tools/builtins/my_tool.py
@@ -285,7 +285,7 @@ def my_tool(param: str) -> str:
     return f"Result: {param}"
 ```
 
-2. Register in `config.yaml`:
+2. 在 `config.yaml` 中注册：
 
 ```yaml
 tools:
@@ -294,9 +294,9 @@ tools:
     use: deerflow.tools.builtins.my_tool:my_tool
 ```
 
-### Adding New Middleware
+### 添加新 Middleware
 
-1. Create middleware in `packages/harness/deerflow/agents/middlewares/`:
+1. 在 `packages/harness/deerflow/agents/middlewares/` 创建 middleware：
 
 ```python
 # packages/harness/deerflow/agents/middlewares/my_middleware.py
@@ -312,7 +312,7 @@ class MyMiddleware(BaseMiddleware):
         return state
 ```
 
-2. Register in `packages/harness/deerflow/agents/lead_agent/agent.py`:
+2. 在 `packages/harness/deerflow/agents/lead_agent/agent.py` 中注册：
 
 ```python
 middlewares = [
@@ -324,9 +324,9 @@ middlewares = [
 ]
 ```
 
-### Adding New API Endpoints
+### 添加新 API 端点
 
-1. Create router in `app/gateway/routers/`:
+1. 在 `app/gateway/routers/` 创建 router：
 
 ```python
 # app/gateway/routers/my_router.py
@@ -345,7 +345,7 @@ async def create_item(data: dict):
     return {"created": data}
 ```
 
-2. Register in `app/gateway/app.py`:
+2. 在 `app/gateway/app.py` 中注册：
 
 ```python
 from app.gateway.routers import my_router
@@ -353,19 +353,19 @@ from app.gateway.routers import my_router
 app.include_router(my_router.router)
 ```
 
-### Configuration Changes
+### 配置更改
 
-When adding new configuration options:
+添加新配置选项时：
 
-1. Update `packages/harness/deerflow/config/app_config.py` with new fields
-2. Add default values in `config.example.yaml`
-3. Document in `docs/CONFIGURATION.md`
+1. 在 `packages/harness/deerflow/config/app_config.py` 添加新字段
+2. 在 `config.example.yaml` 添加默认值
+3. 在 `docs/CONFIGURATION.md` 中记录
 
-### MCP Server Integration
+### MCP Server 集成
 
-To add support for a new MCP server:
+添加对新 MCP server 的支持：
 
-1. Add configuration in `extensions_config.json`:
+1. 在 `extensions_config.json` 中添加配置：
 
 ```json
 {
@@ -381,20 +381,20 @@ To add support for a new MCP server:
 }
 ```
 
-2. Update `extensions_config.example.json` with the new server
+2. 在 `extensions_config.example.json` 中添加新 server
 
-### Skills Development
+### Skills 开发
 
-To create a new skill:
+创建新 skill：
 
-1. Create directory in `skills/public/` or `skills/custom/`:
+1. 在 `skills/public/` 或 `skills/custom/` 创建目录：
 
 ```
 skills/public/my-skill/
 └── SKILL.md
 ```
 
-2. Write `SKILL.md` with YAML front matter:
+2. 编写带有 YAML front matter 的 `SKILL.md`：
 
 ```markdown
 ---
@@ -412,12 +412,12 @@ allowed-tools:
 Instructions for the agent when this skill is enabled...
 ```
 
-## Questions?
+## 问题？
 
-If you have questions about contributing:
+如果您有关于贡献的问题：
 
-1. Check existing documentation in `docs/`
-2. Look for similar issues or PRs on GitHub
-3. Open a discussion or issue on GitHub
+1. 查看 `docs/` 中的现有文档
+2. 在 GitHub 上寻找类似的问题或 PRs
+3. 在 GitHub 上开启讨论或 issue
 
-Thank you for contributing to DeerFlow!
+感谢您为 DeerFlow 贡献！

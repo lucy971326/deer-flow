@@ -1,608 +1,606 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+本文件为 Claude Code（claude.ai/code）在本代码仓库中工作时提供指导。
 
-## Project Overview
+## 项目概述
 
-DeerFlow is a LangGraph-based AI super agent system with a full-stack architecture. The backend provides a "super agent" with sandbox execution, persistent memory, subagent delegation, and extensible tool integration - all operating in per-thread isolated environments.
+DeerFlow 是一个基于 LangGraph 的 AI super agent 系统，采用全栈架构。后端提供一个"super agent"，具有沙箱执行、持久化 memory、子 agent 委托和可扩展工具集成功能——全部在 per-thread 隔离环境中运行。
 
-**Architecture**:
-- **Gateway API** (port 8001): REST API plus embedded LangGraph-compatible agent runtime
-- **Frontend** (port 3000): Next.js web interface
-- **Nginx** (port 2026): Unified reverse proxy entry point
-- **Provisioner** (port 8002, optional in Docker dev): Started only when sandbox is configured for provisioner/Kubernetes mode
+**架构**：
+- **Gateway API**（端口 8001）：REST API + 嵌入式 LangGraph 兼容 agent 运行时
+- **Frontend**（端口 3000）：Next.js Web 界面
+- **Nginx**（端口 2026）：统一反向代理入口
+- **Provisioner**（端口 8002，仅在 Docker dev 模式下）：仅当 sandbox 配置为 provisioner/Kubernetes 模式时启动
 
-**Runtime**:
-- `make dev`, Docker dev, and production all run the agent runtime in Gateway via `RunManager` + `run_agent()` + `StreamBridge` (`packages/harness/deerflow/runtime/`). Nginx exposes that runtime at `/api/langgraph/*` and rewrites it to Gateway's native `/api/*` routers.
+**运行时**：
+- `make dev`、Docker dev 和 production 都通过 `RunManager` + `run_agent()` + `StreamBridge`（`packages/harness/deerflow/runtime/`）在 Gateway 中运行 agent 运行时。Nginx 在 `/api/langgraph/*` 暴露该运行时，并重写到 Gateway 的原生 `/api/*` 路由。
 
-**Project Structure**:
+**项目结构**：
 ```
 deer-flow/
-├── Makefile                    # Root commands (check, install, dev, stop)
-├── config.yaml                 # Main application configuration
-├── extensions_config.json      # MCP servers and skills configuration
-├── backend/                    # Backend application (this directory)
-│   ├── Makefile               # Backend-only commands (dev, gateway, lint)
-│   ├── langgraph.json         # LangGraph Studio graph configuration
+├── Makefile                    # 根目录命令（check, install, dev, stop）
+├── config.yaml                 # 主应用配置
+├── extensions_config.json      # MCP servers 和 skills 配置
+├── backend/                    # 后端应用（当前目录）
+│   ├── Makefile               # 后端专用命令（dev, gateway, lint）
+│   ├── langgraph.json         # LangGraph Studio 图配置
 │   ├── packages/
-│   │   └── harness/           # deerflow-harness package (import: deerflow.*)
+│   │   └── harness/           # deerflow-harness 包（导入：deerflow.*）
 │   │       ├── pyproject.toml
 │   │       └── deerflow/
-│   │           ├── agents/            # LangGraph agent system
-│   │           │   ├── lead_agent/    # Main agent (factory + system prompt)
-│   │           │   ├── middlewares/   # 10 middleware components
-│   │           │   ├── memory/        # Memory extraction, queue, prompts
+│   │           ├── agents/            # LangGraph agent 系统
+│   │           │   ├── lead_agent/    # 主 agent（工厂 + system prompt）
+│   │           │   ├── middlewares/   # 10 个 middleware 组件
+│   │           │   ├── memory/        # Memory 提取、队列、prompts
 │   │           │   └── thread_state.py # ThreadState schema
-│   │           ├── sandbox/           # Sandbox execution system
-│   │           │   ├── local/         # Local filesystem provider
-│   │           │   ├── sandbox.py     # Abstract Sandbox interface
+│   │           ├── sandbox/           # 沙箱执行系统
+│   │           │   ├── local/         # 本地文件系统 provider
+│   │           │   ├── sandbox.py     # 抽象 Sandbox 接口
 │   │           │   ├── tools.py       # bash, ls, read/write/str_replace
-│   │           │   └── middleware.py  # Sandbox lifecycle management
-│   │           ├── subagents/         # Subagent delegation system
+│   │           │   └── middleware.py  # Sandbox 生命周期管理
+│   │           ├── subagents/         # 子 agent 委托系统
 │   │           │   ├── builtins/      # general-purpose, bash agents
-│   │           │   ├── executor.py    # Background execution engine
-│   │           │   └── registry.py    # Agent registry
-│   │           ├── tools/builtins/    # Built-in tools (present_files, ask_clarification, view_image)
-│   │           ├── mcp/               # MCP integration (tools, cache, client)
-│   │           ├── models/            # Model factory with thinking/vision support
-│   │           ├── skills/            # Skills discovery, loading, parsing
-│   │           ├── config/            # Configuration system (app, model, sandbox, tool, etc.)
-│   │           ├── community/         # Community tools (tavily, jina_ai, firecrawl, image_search, aio_sandbox)
-│   │           ├── reflection/        # Dynamic module loading (resolve_variable, resolve_class)
-│   │           ├── utils/             # Utilities (network, readability)
-│   │           └── client.py          # Embedded Python client (DeerFlowClient)
-│   ├── app/                   # Application layer (import: app.*)
+│   │           │   ├── executor.py    # 后台执行引擎
+│   │           │   └── registry.py    # Agent 注册表
+│   │           ├── tools/builtins/    # 内置工具（present_files, ask_clarification, view_image）
+│   │           ├── mcp/               # MCP 集成（tools, cache, client）
+│   │           ├── models/            # Model 工厂，支持 thinking/vision
+│   │           ├── skills/            # Skills 发现、加载、解析
+│   │           ├── config/            # 配置系统（app, model, sandbox, tool 等）
+│   │           ├── community/         # Community 工具（tavily, jina_ai, firecrawl, image_search, aio_sandbox）
+│   │           ├── reflection/        # 动态模块加载（resolve_variable, resolve_class）
+│   │           ├── utils/             # 工具函数（network, readability）
+│   │           └── client.py          # 嵌入式 Python client（DeerFlowClient）
+│   ├── app/                   # 应用层（导入：app.*）
 │   │   ├── gateway/           # FastAPI Gateway API
-│   │   │   ├── app.py         # FastAPI application
-│   │   │   └── routers/       # FastAPI route modules (models, mcp, memory, skills, uploads, threads, artifacts, agents, suggestions, channels)
-│   │   └── channels/          # IM platform integrations
-│   ├── tests/                 # Test suite
-│   └── docs/                  # Documentation
-├── frontend/                   # Next.js frontend application
-└── skills/                     # Agent skills directory
-    ├── public/                # Public skills (committed)
-    └── custom/                # Custom skills (gitignored)
+│   │   │   ├── app.py         # FastAPI 应用
+│   │   │   └── routers/       # FastAPI 路由模块（models, mcp, memory, skills, uploads, threads, artifacts, agents, suggestions, channels）
+│   │   └── channels/          # IM 平台集成（Feishu, Slack, Telegram, DingTalk）
+│   ├── tests/                 # 测试套件
+│   └── docs/                  # 文档
+├── frontend/                   # Next.js 前端应用
+└── skills/                     # Agent skills 目录
+    ├── public/                # 公共 skills（提交）
+    └── custom/                # 自定义 skills（gitignored）
 ```
 
-## Important Development Guidelines
+## 重要的开发指南
 
-### Documentation Update Policy
-**CRITICAL: Always update README.md and CLAUDE.md after every code change**
+### 文档更新政策
+**关键：每次代码更改后必须更新 README.md 和 CLAUDE.md**
 
-When making code changes, you MUST update the relevant documentation:
-- Update `README.md` for user-facing changes (features, setup, usage instructions)
-- Update `CLAUDE.md` for development changes (architecture, commands, workflows, internal systems)
-- Keep documentation synchronized with the codebase at all times
-- Ensure accuracy and timeliness of all documentation
+进行代码更改时，必须更新相关文档：
+- 更新 `README.md` 用于面向用户的更改（功能、设置、使用说明）
+- 更新 `CLAUDE.md` 用于开发更改（架构、命令、工作流程、内部系统）
+- 保持文档与代码库同步
+- 确保所有文档的准确性和时效性
 
-## Commands
+## 命令
 
-**Root directory** (for full application):
+**根目录**（完整应用）：
 ```bash
-make check      # Check system requirements
-make install    # Install all dependencies (frontend + backend)
-make dev        # Start all services (Gateway + Frontend + Nginx), with config.yaml preflight
-make start      # Start production services locally
-make stop       # Stop all services
+make check      # 检查系统需求
+make install    # 安装所有依赖（frontend + backend）
+make dev        # 启动所有服务（Gateway + Frontend + Nginx），并执行 config.yaml 预检
+make start      # 本地启动生产服务
+make stop       # 停止所有服务
 ```
 
-**Backend directory** (for backend development only):
+**backend 目录**（仅后端开发）：
 ```bash
-make install    # Install backend dependencies
-make dev        # Run Gateway API with reload (port 8001)
-make gateway    # Run Gateway API only (port 8001)
-make test       # Run all backend tests
-make lint       # Lint with ruff
-make format     # Format code with ruff
+make install    # 安装后端依赖
+make dev        # 运行 Gateway API 并启用 reload（端口 8001）
+make gateway    # 仅运行 Gateway API（端口 8001）
+make test       # 运行所有后端测试
+make lint       # 用 ruff 检查
+make format     # 用 ruff 格式化代码
 ```
 
-Regression tests related to Docker/provisioner behavior:
-- `tests/test_docker_sandbox_mode_detection.py` (mode detection from `config.yaml`)
-- `tests/test_provisioner_kubeconfig.py` (kubeconfig file/directory handling)
+与 Docker/provisioner 行为相关的回归测试：
+- `tests/test_docker_sandbox_mode_detection.py`（从 `config.yaml` 检测模式）
+- `tests/test_provisioner_kubeconfig.py`（kubeconfig 文件/目录处理）
 
-Boundary check (harness → app import firewall):
-- `tests/test_harness_boundary.py` — ensures `packages/harness/deerflow/` never imports from `app.*`
+边界检查（harness → app 导入防火墙）：
+- `tests/test_harness_boundary.py` — 确保 `packages/harness/deerflow/` 永不从 `app.*` 导入
 
-CI runs these regression tests for every pull request via [.github/workflows/backend-unit-tests.yml](../.github/workflows/backend-unit-tests.yml).
+CI 通过 [.github/workflows/backend-unit-tests.yml](../.github/workflows/backend-unit-tests.yml) 为每个 PR 运行这些回归测试。
 
-## Architecture
+## 架构
 
-### Harness / App Split
+### Harness / App 分离
 
-The backend is split into two layers with a strict dependency direction:
+后端分为两层，有严格的依赖方向：
 
-- **Harness** (`packages/harness/deerflow/`): Publishable agent framework package (`deerflow-harness`). Import prefix: `deerflow.*`. Contains agent orchestration, tools, sandbox, models, MCP, skills, config — everything needed to build and run agents.
-- **App** (`app/`): Unpublished application code. Import prefix: `app.*`. Contains the FastAPI Gateway API and IM channel integrations (Feishu, Slack, Telegram, DingTalk).
+- **Harness**（`packages/harness/deerflow/`）：可发布的 agent 框架包（`deerflow-harness`）。导入前缀：`deerflow.*`。包含构建和运行 agent 所需的一切：agent 编排、tools、sandbox、models、MCP、skills、config。
+- **App**（`app/`）：未发布的应用代码。导入前缀：`app.*`。包含 FastAPI Gateway API 和 IM channel 集成（Feishu, Slack, Telegram, DingTalk）。
 
-**Dependency rule**: App imports deerflow, but deerflow never imports app. This boundary is enforced by `tests/test_harness_boundary.py` which runs in CI.
+**依赖规则**：App 导入 deerflow，但 deerflow 永不导入 app。此边界由 `tests/test_harness_boundary.py` 强制执行，CI 会运行。
 
-**Import conventions**:
+**导入约定**：
 ```python
-# Harness internal
+# Harness 内部
 from deerflow.agents import make_lead_agent
 from deerflow.models import create_chat_model
 
-# App internal
+# App 内部
 from app.gateway.app import app
 from app.channels.service import start_channel_service
 
-# App → Harness (allowed)
+# App → Harness（允许）
 from deerflow.config import get_app_config
 
-# Harness → App (FORBIDDEN — enforced by test_harness_boundary.py)
-# from app.gateway.routers.uploads import ...  # ← will fail CI
+# Harness → App（禁止 — 由 test_harness_boundary.py 强制执行）
+# from app.gateway.routers.uploads import ...  # ← 会导致 CI 失败
 ```
 
-### Agent System
+### Agent 系统
 
-**Lead Agent** (`packages/harness/deerflow/agents/lead_agent/agent.py`):
-- Entry point: `make_lead_agent(config: RunnableConfig)` registered in `langgraph.json`
-- Dynamic model selection via `create_chat_model()` with thinking/vision support
-- Tools loaded via `get_available_tools()` - combines sandbox, built-in, MCP, community, and subagent tools
-- System prompt generated by `apply_prompt_template()` with skills, memory, and subagent instructions
+**Lead Agent**（`packages/harness/deerflow/agents/lead_agent/agent.py`）：
+- 入口点：通过 `make_lead_agent(config: RunnableConfig)` 创建，在 `langgraph.json` 中注册
+- 通过 `create_chat_model()` 动态选择模型，支持 thinking/vision
+- 工具通过 `get_available_tools()` 加载——组合 sandbox、内置、MCP、community 和 subagent tools
+- 系统 prompt 通过 `apply_prompt_template()` 生成，包含 skills、memory 和 subagent 说明
 
-**ThreadState** (`packages/harness/deerflow/agents/thread_state.py`):
-- Extends `AgentState` with: `sandbox`, `thread_data`, `title`, `artifacts`, `todos`, `uploaded_files`, `viewed_images`
-- Uses custom reducers: `merge_artifacts` (deduplicate), `merge_viewed_images` (merge/clear)
+**ThreadState**（`packages/harness/deerflow/agents/thread_state.py`）：
+- 扩展 `AgentState`，包含：`sandbox`、`thread_data`、`title`、`artifacts`、`todos`、`uploaded_files`、`viewed_images`
+- 使用自定义 reducer：`merge_artifacts`（去重）、`merge_viewed_images`（合并/清除）
 
-**Runtime Configuration** (via `config.configurable`):
-- `thinking_enabled` - Enable model's extended thinking
-- `model_name` - Select specific LLM model
-- `is_plan_mode` - Enable TodoList middleware
-- `subagent_enabled` - Enable task delegation tool
+**运行时配置**（通过 `config.configurable`）：
+- `thinking_enabled` - 启用模型的扩展思考
+- `model_name` - 选择特定 LLM 模型
+- `is_plan_mode` - 启用 TodoList middleware
+- `subagent_enabled` - 启用任务委托工具
 
-### Middleware Chain
+### Middleware 链
 
-Lead-agent middlewares are assembled in strict append order across `packages/harness/deerflow/agents/middlewares/tool_error_handling_middleware.py` (`build_lead_runtime_middlewares`) and `packages/harness/deerflow/agents/lead_agent/agent.py` (`_build_middlewares`):
+Lead agent middlewares 在 `packages/harness/deerflow/agents/middlewares/tool_error_handling_middleware.py`（`build_lead_runtime_middlewares`）和 `packages/harness/deerflow/agents/lead_agent/agent.py`（`_build_middlewares`）中按严格顺序追加：
 
-1. **ThreadDataMiddleware** - Creates per-thread directories under the user's isolation scope (`backend/.deer-flow/users/{user_id}/threads/{thread_id}/user-data/{workspace,uploads,outputs}`); resolves `user_id` via `get_effective_user_id()` (falls back to `"default"` in no-auth mode); Web UI thread deletion now follows LangGraph thread removal with Gateway cleanup of the local thread directory
-2. **UploadsMiddleware** - Tracks and injects newly uploaded files into conversation
-3. **SandboxMiddleware** - Acquires sandbox, stores `sandbox_id` in state
-4. **DanglingToolCallMiddleware** - Injects placeholder ToolMessages for AIMessage tool_calls that lack responses (e.g., due to user interruption), including raw provider tool-call payloads preserved only in `additional_kwargs["tool_calls"]`
-5. **LLMErrorHandlingMiddleware** - Normalizes provider/model invocation failures into recoverable assistant-facing errors before later middleware/tool stages run
-6. **GuardrailMiddleware** - Pre-tool-call authorization via pluggable `GuardrailProvider` protocol (optional, if `guardrails.enabled` in config). Evaluates each tool call and returns error ToolMessage on deny. Three provider options: built-in `AllowlistProvider` (zero deps), OAP policy providers (e.g. `aport-agent-guardrails`), or custom providers. See [docs/GUARDRAILS.md](docs/GUARDRAILS.md) for setup, usage, and how to implement a provider.
-7. **SandboxAuditMiddleware** - Audits sandboxed shell/file operations for security logging before tool execution continues
-8. **ToolErrorHandlingMiddleware** - Converts tool exceptions into error `ToolMessage`s so the run can continue instead of aborting
-9. **SummarizationMiddleware** - Context reduction when approaching token limits (optional, if enabled)
-10. **TodoListMiddleware** - Task tracking with `write_todos` tool (optional, if plan_mode)
-11. **TokenUsageMiddleware** - Records token usage metrics when token tracking is enabled (optional); subagent usage is cached by `tool_call_id` only while token usage is enabled and merged back into the dispatching AIMessage by message position rather than message id
-12. **TitleMiddleware** - Auto-generates thread title after first complete exchange and normalizes structured message content before prompting the title model
-13. **MemoryMiddleware** - Queues conversations for async memory update (filters to user + final AI responses)
-14. **ViewImageMiddleware** - Injects base64 image data before LLM call (conditional on vision support)
-15. **DeferredToolFilterMiddleware** - Hides deferred tool schemas from the bound model until tool search is enabled (optional)
-16. **SubagentLimitMiddleware** - Truncates excess `task` tool calls from model response to enforce `MAX_CONCURRENT_SUBAGENTS` limit (optional, if `subagent_enabled`)
-17. **LoopDetectionMiddleware** - Detects repeated tool-call loops; hard-stop responses clear both structured `tool_calls` and raw provider tool-call metadata before forcing a final text answer
-18. **ClarificationMiddleware** - Intercepts `ask_clarification` tool calls, interrupts via `Command(goto=END)` (must be last)
+1. **ThreadDataMiddleware** - 在用户的隔离范围内创建 per-thread 目录（`backend/.deer-flow/users/{user_id}/threads/{thread_id}/user-data/{workspace,uploads,outputs}`）；通过 `get_effective_user_id()` 解析 `user_id`（无 auth 模式下回退到 `"default"`）；Web UI 线程删除现在跟随 LangGraph 线程删除，Gateway 清理本地线程目录
+2. **UploadsMiddleware** - 跟踪并注入新上传的文件到对话中
+3. **SandboxMiddleware** - 获取 sandbox，在 state 中存储 `sandbox_id`
+4. **DanglingToolCallMiddleware** - 为缺少响应的 AIMessage tool_calls 注入占位符 ToolMessage（例如由于用户中断），包括仅保存在 `additional_kwargs["tool_calls"]` 中的原始 provider tool-call payloads
+5. **LLMErrorHandlingMiddleware** - 在后续 middleware/工具阶段之前，将 provider/model 调用失败规范化为可恢复的 assistant-facing 错误
+6. **GuardrailMiddleware** - 通过可插拔的 `GuardrailProvider` 协议进行 tool-call 前授权（如果 `guardrails.enabled` 在 config 中）。评估每个 tool call，拒绝时返回错误 ToolMessage。三种 provider 选项：内置 `AllowlistProvider`（零依赖）、OAP policy providers（例如 `aport-agent-guardrails`）或自定义 providers。详见 [docs/GUARDRAILS.md](docs/GUARDRAILS.md) 获取设置、使用和实现 provider 的说明。
+7. **SandboxAuditMiddleware** - 在工具执行继续之前审计沙箱化 shell/文件操作以进行安全日志记录
+8. **ToolErrorHandlingMiddleware** - 将工具异常转换为错误 `ToolMessage`，使 run 可以继续而不是中止
+9. **SummarizationMiddleware** - 接近 token 限制时的上下文缩减（可选，如果启用）
+10. **TodoListMiddleware** - 通过 `write_todos` 工具进行任务跟踪（可选，如果 plan_mode）
+11. **TokenUsageMiddleware** - 启用 token 跟踪时记录 token 使用指标（可选）；subagent 使用通过 `tool_call_id` 缓存，仅在 token 使用启用时，并通过消息位置（而非消息 ID）合并回派发的 AIMessage
+12. **TitleMiddleware** - 在第一次完整交换后自动生成线程标题，并在提示标题模型之前规范化结构化消息内容
+13. **MemoryMiddleware** - 将对话排队等待异步 memory 更新（过滤到 user + 最终 AI 响应）
+14. **ViewImageMiddleware** - 在 LLM 调用之前注入 base64 图像数据（取决于 vision 支持）
+15. **DeferredToolFilterMiddleware** - 在启用工具搜索之前，向绑定模型隐藏 deferred 工具 schemas（可选）
+16. **SubagentLimitMiddleware** - 在 `after_model` 中截断多余的 `task` tool calls 以强制执行 `MAX_CONCURRENT_SUBAGENTS` 限制（可选，如果 `subagent_enabled`）
+17. **LoopDetectionMiddleware** - 检测重复的 tool-call 循环；硬停止响应在强制最终文本回答之前清除结构化 `tool_calls` 和原始 provider tool-call 元数据
+18. **ClarificationMiddleware** - 拦截 `ask_clarification` tool calls，通过 `Command(goto=END)` 中断（必须在最后）
 
-### Configuration System
+### 配置系统
 
-**Main Configuration** (`config.yaml`):
+**主配置**（`config.yaml`）：
 
-Setup: Copy `config.example.yaml` to `config.yaml` in the **project root** directory.
+设置：从 **项目根目录** 复制 `config.example.yaml` 到 `config.yaml`。
 
-**Config Versioning**: `config.example.yaml` has a `config_version` field. On startup, `AppConfig.from_file()` compares user version vs example version and emits a warning if outdated. Missing `config_version` = version 0. Run `make config-upgrade` to auto-merge missing fields. When changing the config schema, bump `config_version` in `config.example.yaml`.
+**配置版本控制**：`config.example.yaml` 有 `config_version` 字段。启动时，`AppConfig.from_file()` 比较用户版本与示例版本，如果过时则发出警告。缺少 `config_version` = 版本 0。运行 `make config-upgrade` 自动合并缺失字段。更改配置 schema 时，在 `config.example.yaml` 中 bump `config_version`。
 
-**Config Caching**: `get_app_config()` caches the parsed config, but automatically reloads it when the resolved config path changes or the file's mtime increases. This keeps Gateway and LangGraph reads aligned with `config.yaml` edits without requiring a manual process restart.
+**配置缓存**：`get_app_config()` 缓存解析后的配置，但当解析的配置路径更改或文件 mtime 增加时会自动重新加载。这使 Gateway 和 LangGraph 读取与 `config.yaml` 编辑保持一致，无需手动重启进程。
 
-**Config Hot-Reload Boundary**: Gateway dependencies route through `get_app_config()` on every request, so per-run fields like `models[*].max_tokens`, `summarization.*`, `title.*`, `memory.*`, `subagents.*`, `tools[*]`, and the agent system prompt pick up `config.yaml` edits on the next message. `AppConfig` is intentionally **not** cached on `app.state` — `lifespan()` keeps a local `startup_config` variable for one-shot bootstrap work (logging level, channels, `langgraph_runtime` engines) and passes it explicitly to `langgraph_runtime(app, startup_config)`. Infrastructure fields are **restart-required**:
+**配置热重载边界**：Gateway 依赖通过 `get_app_config()` 在每个请求上路由，因此 per-run 字段如 `models[*].max_tokens`、`summarization.*`、`title.*`、`memory.*`、`subagents.*`、`tools[*]` 和 agent system prompt 在下次消息时获取 `config.yaml` 编辑。`AppConfig` 故意 **不** 缓存在 `app.state` 上——`lifespan()` 保留一个本地 `startup_config` 变量用于一次性引导工作（日志级别、channels、`langgraph_runtime` engines），并明确传递给 `langgraph_runtime(app, startup_config)`。基础设施字段需要 **重启**：
 
-| Field | Why a restart is required |
+| 字段 | 为什么需要重启 |
 |---|---|
-| `database.*` | `init_engine_from_config()` runs once during `langgraph_runtime()` startup; the SQLAlchemy engine holds the connection pool. |
-| `checkpointer.*` (including SQLite WAL/journal settings) | `make_checkpointer()` binds the persistent checkpointer once at startup. |
-| `run_events.*` | `make_run_event_store()` selects memory- vs. SQL-backed implementation at startup. |
-| `stream_bridge.*` | `make_stream_bridge()` constructs the bridge object once. |
-| `sandbox.use` | `get_sandbox_provider()` caches the provider singleton (`_default_sandbox_provider`); a new class path takes effect only on next process start. |
-| `log_level` | `apply_logging_level()` is called only in `app.py` startup; it mutates the root logger's level, and `get_app_config()` returning a fresh `AppConfig` does not retrigger it. |
-| `channels.*` IM platform credentials | `start_channel_service()` is invoked once during startup; live channels are not rebuilt on config change. |
+| `database.*` | `init_engine_from_config()` 在 `langgraph_runtime()` 启动时运行一次；SQLAlchemy engine 持有连接池。 |
+| `checkpointer.*`（包括 SQLite WAL/journal 设置） | `make_checkpointer()` 在启动时绑定持久化 checkpointer。 |
+| `run_events.*` | `make_run_event_store()` 在启动时选择 memory- vs. SQL-backed 实现。 |
+| `stream_bridge.*` | `make_stream_bridge()` 在启动时构造 bridge 对象一次。 |
+| `sandbox.use` | `get_sandbox_provider()` 缓存 provider 单例（`_default_sandbox_provider`）；新的类路径仅在下次进程启动时生效。 |
+| `log_level` | `apply_logging_level()` 仅在 `app.py` 启动时调用；它改变 root logger 的 level，而 `get_app_config()` 返回新的 `AppConfig` 不会重新触发它。 |
+| `channels.*` IM 平台凭证 | `start_channel_service()` 在启动时调用一次；live channels 在配置更改时不会重建。 |
 
-Configuration priority:
-1. Explicit `config_path` argument
-2. `DEER_FLOW_CONFIG_PATH` environment variable
-3. `config.yaml` in current directory (backend/)
-4. `config.yaml` in parent directory (project root - **recommended location**)
+配置优先级：
+1. 显式 `config_path` 参数
+2. `DEER_FLOW_CONFIG_PATH` 环境变量
+3. 当前目录（backend/）中的 `config.yaml`
+4. 父目录中的 `config.yaml`（项目根目录 — **推荐位置**）
 
-Config values starting with `$` are resolved as environment variables (e.g., `$OPENAI_API_KEY`).
-`ModelConfig` also declares `use_responses_api` and `output_version` so OpenAI `/v1/responses` can be enabled explicitly while still using `langchain_openai:ChatOpenAI`.
+以 `$` 开头的配置值解析为环境变量（例如 `$OPENAI_API_KEY`）。
+`ModelConfig` 还声明 `use_responses_api` 和 `output_version`，因此可以明确启用 OpenAI `/v1/responses`，同时仍使用 `langchain_openai:ChatOpenAI`。
 
-**Extensions Configuration** (`extensions_config.json`):
+**扩展配置**（`extensions_config.json`）：
 
-MCP servers and skills are configured together in `extensions_config.json` in project root:
+MCP servers 和 skills 在 `extensions_config.json` 中一起配置，位于项目根目录：
 
-Configuration priority:
-1. Explicit `config_path` argument
-2. `DEER_FLOW_EXTENSIONS_CONFIG_PATH` environment variable
-3. `extensions_config.json` in current directory (backend/)
-4. `extensions_config.json` in parent directory (project root - **recommended location**)
+配置优先级：
+1. 显式 `config_path` 参数
+2. `DEER_FLOW_EXTENSIONS_CONFIG_PATH` 环境变量
+3. 当前目录（backend/）中的 `extensions_config.json`
+4. 父目录中的 `extensions_config.json`（项目根目录 — **推荐位置**）
 
-### Gateway API (`app/gateway/`)
+### Gateway API（`app/gateway/`）
 
-FastAPI application on port 8001 with health check at `GET /health`. Set `GATEWAY_ENABLE_DOCS=false` to disable `/docs`, `/redoc`, and `/openapi.json` in production (default: enabled).
+FastAPI 应用，端口 8001，健康检查在 `GET /health`。设置 `GATEWAY_ENABLE_DOCS=false` 在生产中禁用 `/docs`、`/redoc` 和 `/openapi.json`（默认：启用）。
 
-CORS is same-origin by default when requests enter through nginx on port 2026. Split-origin or port-forwarded browser clients must opt in with `GATEWAY_CORS_ORIGINS` (comma-separated exact origins); Gateway `CORSMiddleware` and `CSRFMiddleware` both read that variable so browser CORS and auth-origin checks stay aligned.
+当请求通过 nginx 进入端口 2026 时，CORS 是同源的。分源或端口转发的浏览器客户端必须通过 `GATEWAY_CORS_ORIGINS`（逗号分隔的精确源）选择加入；Gateway 的 `CORSMiddleware` 和 `CSRFMiddleware` 都读取该变量，因此浏览器 CORS 和 auth-origin 检查保持一致。
 
-**Routers**:
+**路由**：
 
-| Router | Endpoints |
+| 路由 | 端点 |
 |--------|-----------|
-| **Models** (`/api/models`) | `GET /` - list models; `GET /{name}` - model details |
-| **MCP** (`/api/mcp`) | `GET /config` - get config; `PUT /config` - update config (saves to extensions_config.json) |
-| **Skills** (`/api/skills`) | `GET /` - list skills; `GET /{name}` - details; `PUT /{name}` - update enabled; `POST /install` - install from .skill archive (accepts standard optional frontmatter like `version`, `author`, `compatibility`) |
-| **Memory** (`/api/memory`) | `GET /` - memory data; `POST /reload` - force reload; `GET /config` - config; `GET /status` - config + data |
-| **Uploads** (`/api/threads/{id}/uploads`) | `POST /` - upload files (auto-converts PDF/PPT/Excel/Word); `GET /list` - list; `DELETE /{filename}` - delete |
-| **Threads** (`/api/threads/{id}`) | `DELETE /` - remove DeerFlow-managed local thread data after LangGraph thread deletion; unexpected failures are logged server-side and return a generic 500 detail |
-| **Artifacts** (`/api/threads/{id}/artifacts`) | `GET /{path}` - serve artifacts; active content types (`text/html`, `application/xhtml+xml`, `image/svg+xml`) are always forced as download attachments to reduce XSS risk; `?download=true` still forces download for other file types |
-| **Suggestions** (`/api/threads/{id}/suggestions`) | `POST /` - generate follow-up questions; rich list/block model content is normalized before JSON parsing |
-| **Thread Runs** (`/api/threads/{id}/runs`) | `POST /` - create background run; `POST /stream` - create + SSE stream; `POST /wait` - create + block; `GET /` - list runs; `GET /{rid}` - run details; `POST /{rid}/cancel` - cancel; `GET /{rid}/join` - join SSE; `GET /{rid}/messages` - paginated messages `{data, has_more}`; `GET /{rid}/events` - full event stream; `GET /../messages` - thread messages with feedback; `GET /../token-usage` - aggregate tokens |
-| **Feedback** (`/api/threads/{id}/runs/{rid}/feedback`) | `PUT /` - upsert feedback; `DELETE /` - delete user feedback; `POST /` - create feedback; `GET /` - list feedback; `GET /stats` - aggregate stats; `DELETE /{fid}` - delete specific |
-| **Runs** (`/api/runs`) | `POST /stream` - stateless run + SSE; `POST /wait` - stateless run + block; `GET /{rid}/messages` - paginated messages by run_id `{data, has_more}` (cursor: `after_seq`/`before_seq`); `GET /{rid}/feedback` - list feedback by run_id |
+| **Models**（`/api/models`） | `GET /` - 列出模型；`GET /{name}` - 模型详情 |
+| **MCP**（`/api/mcp`） | `GET /config` - 获取配置；`PUT /config` - 更新配置（保存到 extensions_config.json） |
+| **Skills**（`/api/skills`） | `GET /` - 列出 skills；`GET /{name}` - 详情；`PUT /{name}` - 更新启用状态；`POST /install` - 从 .skill 归档安装（接受标准可选 frontmatter 如 `version`、`author`、`compatibility`） |
+| **Memory**（`/api/memory`） | `GET /` - memory 数据；`POST /reload` - 强制重新加载；`GET /config` - 配置；`GET /status` - 配置 + 数据 |
+| **Uploads**（`/api/threads/{id}/uploads`） | `POST /` - 上传文件（自动转换 PDF/PPT/Excel/Word）；`GET /list` - 列出；`DELETE /{filename}` - 删除 |
+| **Threads**（`/api/threads/{id}`） | `DELETE /` - 在 LangGraph 线程删除后删除 DeerFlow 管理的本地线程数据；意外失败在服务器端记录并返回通用 500 详情 |
+| **Artifacts**（`/api/threads/{id}/artifacts`） | `GET /{path}` - 提供 artifacts；活动内容类型（`text/html`、`application/xhtml+xml`、`image/svg+xml`）始终强制作为下载附件以降低 XSS 风险；`?download=true` 仍强制下载其他文件类型 |
+| **Suggestions**（`/api/threads/{id}/suggestions`） | `POST /` - 生成后续问题；富列表/块模型内容在 JSON 解析前规范化 |
+| **Thread Runs**（`/api/threads/{id}/runs`） | `POST /` - 创建后台 run；`POST /stream` - 创建 + SSE 流；`POST /wait` - 创建 + 阻塞；`GET /` - 列出 runs；`GET /{rid}` - run 详情；`POST /{rid}/cancel` - 取消；`GET /{rid}/join` - 加入 SSE；`GET /{rid}/messages` - 分页消息 `{data, has_more}`；`GET /{rid}/events` - 完整事件流；`GET /../messages` - 带反馈的线程消息；`GET /../token-usage` - 聚合 tokens |
+| **Feedback**（`/api/threads/{id}/runs/{rid}/feedback`） | `PUT /` - upsert 反馈；`DELETE /` - 删除用户反馈；`POST /` - 创建反馈；`GET /` - 列出反馈；`GET /stats` - 聚合统计；`DELETE /{fid}` - 删除特定反馈 |
+| **Runs**（`/api/runs`） | `POST /stream` - 无状态 run + SSE；`POST /wait` - 无状态 run + 阻塞；`GET /{rid}/messages` - 按 run_id 分页消息 `{data, has_more}`（游标：`after_seq`/`before_seq`）；`GET /{rid}/feedback` - 按 run_id 列出反馈 |
 
-**RunManager / RunStore contract**:
-- `RunManager.get()` is async; direct callers must `await` it.
-- When a persistent `RunStore` is configured, `get()` and `list_by_thread()` hydrate historical runs from the store. In-memory records win for the same `run_id` so task, abort, and stream-control state stays attached to active local runs.
-- `cancel()` and `create_or_reject(..., multitask_strategy="interrupt"|"rollback")` persist interrupted status through `RunStore.update_status()`, matching normal `set_status()` transitions.
-- Store-only hydrated runs are readable history. If the current worker has no in-memory task/control state for that run, cancellation APIs can return 409 because this worker cannot stop the task.
+**RunManager / RunStore 契约**：
+- `RunManager.get()` 是 async；直接调用者必须 `await` 它。
+- 当配置了持久化 `RunStore` 时，`get()` 和 `list_by_thread()` 从 store 中补充历史 runs。相同 `run_id` 的内存记录优先，因此 task、abort 和 stream-control 状态保持在活跃的本地 runs 上。
+- `cancel()` 和 `create_or_reject(..., multitask_strategy="interrupt"|"rollback")` 通过 `RunStore.update_status()` 持久化中断状态，匹配正常的 `set_status()` 转换。
+- 仅从 store 补充的 runs 是可读历史。如果当前 worker 没有该 run 的内存 task/control 状态，取消 API 可能返回 409，因为该 worker 无法停止 task。
 
-Proxied through nginx: `/api/langgraph/*` → Gateway LangGraph-compatible runtime, all other `/api/*` → Gateway REST APIs.
+通过 nginx 代理：`/api/langgraph/*` → Gateway LangGraph 兼容运行时，其他 `/api/*` → Gateway REST API。
 
-### Sandbox System (`packages/harness/deerflow/sandbox/`)
+### Sandbox 系统（`packages/harness/deerflow/sandbox/`）
 
-**Interface**: Abstract `Sandbox` with `execute_command`, `read_file`, `write_file`, `list_dir`
-**Provider Pattern**: `SandboxProvider` with `acquire`, `acquire_async`, `get`, `release` lifecycle. Async agent/tool paths call async sandbox lifecycle hooks so Docker sandbox creation, discovery, cross-process locking, readiness polling, and release stay off the event loop.
-**Implementations**:
-- `LocalSandboxProvider` - Local filesystem execution. `acquire(thread_id)` returns a per-thread `LocalSandbox` (id `local:{thread_id}`) whose `path_mappings` resolve `/mnt/user-data/{workspace,uploads,outputs}` and `/mnt/acp-workspace` to that thread's host directories, so the public `Sandbox` API honours the `/mnt/user-data` contract uniformly with AIO. `acquire()` / `acquire(None)` keeps the legacy generic singleton (id `local`) for callers without a thread context. Per-thread sandboxes are held in an LRU cache (default 256 entries) guarded by a `threading.Lock`.
-- `AioSandboxProvider` (`packages/harness/deerflow/community/`) - Docker-based isolation
+**接口**：抽象 `Sandbox`，包含 `execute_command`、`read_file`、`write_file`、`list_dir`
+**Provider 模式**：`SandboxProvider`，包含 `acquire`、`acquire_async`、`get`、`release` 生命周期。Async agent/工具路径调用 async sandbox 生命周期钩子，因此 Docker sandbox 创建、发现、跨进程锁定、就绪轮询和释放不会阻塞事件循环。
+**实现**：
+- `LocalSandboxProvider` - 本地文件系统执行。`acquire(thread_id)` 返回 per-thread `LocalSandbox`（id `local:{thread_id}`），其 `path_mappings` 将 `/mnt/user-data/{workspace,uploads,outputs}` 和 `/mnt/acp-workspace` 解析为该线程的主机目录，使公开的 `Sandbox` API 与 AIO 统一接受 `/mnt/user-data` 约定。`acquire()` / `acquire(None)` 保留legacy通用单例（id `local`），用于没有线程上下文 的调用者。Per-thread sandboxes 保存在 LRU 缓存中（默认 256 项），由 `threading.Lock` 保护。
+- `AioSandboxProvider`（`packages/harness/deerflow/community/`） - 基于 Docker 的隔离
 
-**Virtual Path System**:
-- Agent sees: `/mnt/user-data/{workspace,uploads,outputs}`, `/mnt/skills`
-- Physical: `backend/.deer-flow/users/{user_id}/threads/{thread_id}/user-data/...`, `deer-flow/skills/`
-- Translation: `LocalSandboxProvider` builds per-thread `PathMapping`s for the user-data prefixes at acquire time; `tools.py` keeps `replace_virtual_path()` / `replace_virtual_paths_in_command()` as a defense-in-depth layer (and for path validation). AIO has the directories volume-mounted at the same virtual paths inside its container, so both implementations accept `/mnt/user-data/...` natively.
-- Detection: `is_local_sandbox()` accepts both `sandbox_id == "local"` (legacy / no-thread) and `sandbox_id.startswith("local:")` (per-thread)
+**虚拟路径系统**：
+- Agent 看到：`/mnt/user-data/{workspace,uploads,outputs}`、`/mnt/skills`
+- 物理路径：`backend/.deer-flow/users/{user_id}/threads/{thread_id}/user-data/...`、`deer-flow/skills/`
+- 翻译：`LocalSandboxProvider` 在 acquire 时构建 per-thread `PathMapping`，用于 user-data 前缀；`tools.py` 保持 `replace_virtual_path()` / `replace_virtual_paths_in_command()` 作为深度防御（并用于路径验证）。AIO 在容器内以相同的虚拟路径挂载目录，因此两个实现都原生接受 `/mnt/user-data/...`。
+- 检测：`is_local_sandbox()` 接受 `sandbox_id == "local"`（legacy/无线程）和 `sandbox_id.startswith("local:")`（per-thread）两种情况。
 
-**Sandbox Tools** (in `packages/harness/deerflow/sandbox/tools.py`):
-- `bash` - Execute commands with path translation and error handling
-- `ls` - Directory listing (tree format, max 2 levels)
-- `read_file` - Read file contents with optional line range
-- `write_file` - Write/append to files, creates directories; overwrites by default and exposes the `append` argument in the model-facing schema for end-of-file writes
-- `str_replace` - Substring replacement (single or all occurrences); same-path serialization is scoped to `(sandbox.id, path)` so isolated sandboxes do not contend on identical virtual paths inside one process
+**Sandbox 工具**（在 `packages/harness/deerflow/sandbox/tools.py` 中）：
+- `bash` - 执行命令，带路径翻译和错误处理
+- `ls` - 目录列表（树格式，最多 2 层）
+- `read_file` - 读取文件内容，可选行范围
+- `write_file` - 写/追加到文件，创建目录；默认覆盖，并在模型面向 schema 中暴露 `append` 参数用于文件末尾写
+- `str_replace` - 子字符串替换（单次或全部）；相同路径序列化作用域为 `(sandbox.id, path)`，因此隔离 sandboxes 在虚拟路径相同时不会竞争
 
-### Subagent System (`packages/harness/deerflow/subagents/`)
+### Subagent 系统（`packages/harness/deerflow/subagents/`）
 
-**Built-in Agents**: `general-purpose` (all tools except `task`) and `bash` (command specialist)
-**Execution**: Dual thread pool - `_scheduler_pool` (3 workers) + `_execution_pool` (3 workers)
-**Concurrency**: `MAX_CONCURRENT_SUBAGENTS = 3` enforced by `SubagentLimitMiddleware` (truncates excess tool calls in `after_model`), 15-minute timeout
-**Flow**: `task()` tool → `SubagentExecutor` → background thread → poll 5s → SSE events → result
-**Events**: `task_started`, `task_running`, `task_completed`/`task_failed`/`task_timed_out`
+**内置 Agents**：`general-purpose`（除 `task` 外的所有工具）和 `bash`（命令专家）
+**执行**：双线程池 - `_scheduler_pool`（3 个 workers）+ `_execution_pool`（3 个 workers）
+**并发**：`MAX_CONCURRENT_SUBAGENTS = 3` 由 `SubagentLimitMiddleware` 强制执行（在 `after_model` 中截断多余的 tool calls），15 分钟超时
+**流程**：`task()` 工具 → `SubagentExecutor` → 后台线程 → 轮询 5s → SSE 事件 → 结果
+**事件**：`task_started`、`task_running`、`task_completed`/`task_failed`/`task_timed_out`
 
-### Tool System (`packages/harness/deerflow/tools/`)
+### 工具系统（`packages/harness/deerflow/tools/`）
 
-`get_available_tools(groups, include_mcp, model_name, subagent_enabled)` assembles:
-1. **Config-defined tools** - Resolved from `config.yaml` via `resolve_variable()`
-2. **MCP tools** - From enabled MCP servers (lazy initialized, cached with mtime invalidation)
-3. **Built-in tools**:
-   - `present_files` - Make output files visible to user (only `/mnt/user-data/outputs`)
-   - `ask_clarification` - Request clarification (intercepted by ClarificationMiddleware → interrupts)
-   - `view_image` - Read image as base64 (added only if model supports vision)
-   - `setup_agent` - Bootstrap-only: persist a brand-new custom agent's `SOUL.md` and `config.yaml`. Bound only when `is_bootstrap=True`.
-   - `update_agent` - Custom-agent-only: persist self-updates to the current agent's `SOUL.md` / `config.yaml` from inside a normal chat (partial update + atomic write). Bound when `agent_name` is set and `is_bootstrap=False`.
-4. **Subagent tool** (if enabled):
-   - `task` - Delegate to subagent (description, prompt, subagent_type)
+`get_available_tools(groups, include_mcp, model_name, subagent_enabled)` 组装：
+1. **Config 定义的工具** - 通过 `resolve_variable()` 从 `config.yaml` 解析
+2. **MCP 工具** - 从启用的 MCP servers（延迟初始化，带 mtime 无效化的缓存）
+3. **内置工具**：
+   - `present_files` - 使输出文件对用户可见（仅 `/mnt/user-data/outputs`）
+   - `ask_clarification` - 请求澄清（被 ClarificationMiddleware 拦截 → 中断）
+   - `view_image` - 将图像读取为 base64（仅在模型支持 vision 时添加）
+   - `setup_agent` - 仅引导时：持久化全新自定义 agent 的 `SOUL.md` 和 `config.yaml`。仅在 `is_bootstrap=True` 时绑定。
+   - `update_agent` - 仅自定义 agent：在普通聊天中持久化当前 agent 的 `SOUL.md` / `config.yaml` 的自身更新（部分更新 + 原子写）。在 `agent_name` 设置且 `is_bootstrap=False` 时绑定。
+4. **Subagent 工具**（如果启用）：
+   - `task` - 委托给 subagent（description, prompt, subagent_type）
 
-**Community tools** (`packages/harness/deerflow/community/`):
-- `tavily/` - Web search (5 results default) and web fetch (4KB limit)
-- `jina_ai/` - Web fetch via Jina reader API with readability extraction
-- `firecrawl/` - Web scraping via Firecrawl API
+**Community 工具**（`packages/harness/deerflow/community/`）：
+- `tavily/` - 网络搜索（默认 5 条结果）和网络获取（4KB 限制）
+- `jina_ai/` - 通过 Jina reader API 进行网络获取，带可读性提取
+- `firecrawl/` - 通过 Firecrawl API 进行网络抓取
 
-**ACP agent tools**:
-- `invoke_acp_agent` - Invokes external ACP-compatible agents from `config.yaml`
-- ACP launchers must be real ACP adapters. The standard `codex` CLI is not ACP-compatible by itself; configure a wrapper such as `npx -y @zed-industries/codex-acp` or an installed `codex-acp` binary
-- Missing ACP executables now return an actionable error message instead of a raw `[Errno 2]`
-- Each ACP agent uses a per-thread workspace at `{base_dir}/users/{user_id}/threads/{thread_id}/acp-workspace/`. The workspace is accessible to the lead agent via the virtual path `/mnt/acp-workspace/` (read-only). In docker sandbox mode, the directory is volume-mounted into the container at `/mnt/acp-workspace` (read-only); in local sandbox mode, path translation is handled by `tools.py`
-- `image_search/` - Image search via DuckDuckGo
+**ACP agent 工具**：
+- `invoke_acp_agent` - 从 `config.yaml` 调用外部 ACP 兼容 agents
+- ACP launcher 必须是真正的 ACP adapters。标准 `codex` CLI 本身不是 ACP 兼容的；配置一个 wrapper 如 `npx -y @zed-industries/codex-acp` 或已安装的 `codex-acp` 二进制文件
+- 缺少 ACP 可执行文件现在返回可操作的错误消息，而不是原始的 `[Errno 2]`
+- 每个 ACP agent 在 `{base_dir}/users/{user_id}/threads/{thread_id}/acp-workspace/` 使用 per-thread 工作区。该工作区可通过虚拟路径 `/mnt/acp-workspace/` 由 lead agent 访问（只读）。在 docker sandbox 模式下，目录被卷挂载到容器内的 `/mnt/acp-workspace`（只读）；在本地 sandbox 模式下，路径翻译由 `tools.py` 处理
+- `image_search/` - 通过 DuckDuckGo 进行图像搜索
 
-### MCP System (`packages/harness/deerflow/mcp/`)
+### MCP 系统（`packages/harness/deerflow/mcp/`）
 
-- Uses `langchain-mcp-adapters` `MultiServerMCPClient` for multi-server management
-- **Lazy initialization**: Tools loaded on first use via `get_cached_mcp_tools()`
-- **Cache invalidation**: Detects config file changes via mtime comparison
-- **Transports**: stdio (command-based), SSE, HTTP
-- **OAuth (HTTP/SSE)**: Supports token endpoint flows (`client_credentials`, `refresh_token`) with automatic token refresh + Authorization header injection
-- **Runtime updates**: Gateway API saves to extensions_config.json; LangGraph detects via mtime
+- 使用 `langchain-mcp-adapters` `MultiServerMCPClient` 进行多服务器管理
+- **延迟初始化**：工具在首次使用时通过 `get_cached_mcp_tools()` 加载
+- **缓存失效**：通过 mtime 比较检测配置文件更改
+- **传输**：stdio（基于命令）、SSE、HTTP
+- **OAuth（HTTP/SSE）**：支持 token 端点流程（`client_credentials`、`refresh_token`），带自动 token 刷新 + Authorization 头注入
+- **运行时更新**：Gateway API 保存到 extensions_config.json；LangGraph 通过 mtime 检测
 
-### Skills System (`packages/harness/deerflow/skills/`)
+### Skills 系统（`packages/harness/deerflow/skills/`）
 
-- **Location**: `deer-flow/skills/{public,custom}/`
-- **Format**: Directory with `SKILL.md` (YAML frontmatter: name, description, license, allowed-tools)
-- **Loading**: `load_skills()` recursively scans `skills/{public,custom}` for `SKILL.md`, parses metadata, and reads enabled state from extensions_config.json
-- **Injection**: Enabled skills listed in agent system prompt with container paths
-- **Installation**: `POST /api/skills/install` extracts .skill ZIP archive to custom/ directory
+- **位置**：`deer-flow/skills/{public,custom}/`
+- **格式**：带有 `SKILL.md` 的目录（YAML frontmatter：name, description, license, allowed-tools）
+- **加载**：`load_skills()` 递归扫描 `skills/{public,custom}` 查找 `SKILL.md`，解析元数据，并从 extensions_config.json 读取启用状态
+- **注入**：启用的 skills 在 agent system prompt 中列出，带容器路径
+- **安装**：`POST /api/skills/install` 将 .skill ZIP 归档提取到 custom/ 目录
 
-### Model Factory (`packages/harness/deerflow/models/factory.py`)
+### Model 工厂（`packages/harness/deerflow/models/factory.py`）
 
-- `create_chat_model(name, thinking_enabled)` instantiates LLM from config via reflection
-- Supports `thinking_enabled` flag with per-model `when_thinking_enabled` overrides
-- Supports vLLM-style thinking toggles via `when_thinking_enabled.extra_body.chat_template_kwargs.enable_thinking` for Qwen reasoning models, while normalizing legacy `thinking` configs for backward compatibility
-- Supports `supports_vision` flag for image understanding models
-- Config values starting with `$` resolved as environment variables
-- Missing provider modules surface actionable install hints from reflection resolvers (for example `uv add langchain-google-genai`)
+- `create_chat_model(name, thinking_enabled)` 通过反射从配置实例化 LLM
+- 支持 `thinking_enabled` 标志，带 per-model `when_thinking_enabled` 覆盖
+- 支持通过 `when_thinking_enabled.extra_body.chat_template_kwargs.enable_thinking` 为 Qwen 推理模型启用 vLLM 风格的思考切换，同时规范化 legacy `thinking` 配置以保持向后兼容
+- 支持 `supports_vision` 标志用于图像理解模型
+- 以 `$` 开头的配置值解析为环境变量
+- 缺少 provider 模块从反射解析器显示可操作的安装提示（例如 `uv add langchain-google-genai`）
 
-### vLLM Provider (`packages/harness/deerflow/models/vllm_provider.py`)
+### vLLM Provider（`packages/harness/deerflow/models/vllm_provider.py`）
 
-- `VllmChatModel` subclasses `langchain_openai:ChatOpenAI` for vLLM 0.19.0 OpenAI-compatible endpoints
-- Preserves vLLM's non-standard assistant `reasoning` field on full responses, streaming deltas, and follow-up tool-call turns
-- Designed for configs that enable thinking through `extra_body.chat_template_kwargs.enable_thinking` on vLLM 0.19.0 Qwen reasoning models, while accepting the older `thinking` alias
+- `VllmChatModel` 是 `langchain_openai:ChatOpenAI` 的子类，用于 vLLM 0.19.0 OpenAI 兼容端点
+- 在完整响应、流式 deltas 和后续 tool-call 轮次中保留 vLLM 非标准的 assistant `reasoning` 字段
+- 专为通过 `extra_body.chat_template_kwargs.enable_thinking` 为 vLLM 0.19.0 Qwen 推理模型启用思考的配置而设计，同时接受 older `thinking` 别名
 
-### IM Channels System (`app/channels/`)
+### IM Channels 系统（`app/channels/`）
 
-Bridges external messaging platforms (Feishu, Slack, Telegram, DingTalk) to the DeerFlow agent via the LangGraph Server.
+将外部消息平台（Feishu, Slack, Telegram, DingTalk）桥接到 DeerFlow agent，通过 LangGraph Server。
 
+**架构**：Channels 通过 `langgraph-sdk` HTTP client（与 frontend 相同）与 Gateway 通信，确保线程在服务器端创建和管理。内部 SDK client 注入进程本地的内部 auth 以及匹配的 CSRF cookie/header 对，使 Gateway 接受来自 channel workers 的状态更改线程/run 请求，而不依赖浏览器会话 cookies。
 
-**Architecture**: Channels communicate with Gateway through the `langgraph-sdk` HTTP client (same as the frontend), ensuring threads are created and managed server-side. The internal SDK client injects process-local internal auth plus a matching CSRF cookie/header pair so Gateway accepts state-changing thread/run requests from channel workers without relying on browser session cookies.
+**组件**：
+- `message_bus.py` - 异步 pub/sub hub（`InboundMessage` → 队列 → 调度器；`OutboundMessage` → 回调 → channels）
+- `store.py` - JSON 文件持久化，映射 `channel_name:chat_id[:topic_id]` → `thread_id`（键是根对话的 `channel:chat` 和线程对话的 `channel:chat:topic`）
+- `manager.py` - 核心调度器：通过 `client.threads.create()` 创建线程，路由命令，在 Slack/Telegram 上保持 `client.runs.wait()`，并使用 `client.runs.stream(["messages-tuple", "values"])` 进行 Feishu 增量出站更新
+- `base.py` - 抽象 `Channel` 基类（start/stop/send 生命周期）
+- `service.py` - 从 `config.yaml` 管理所有配置的 channels 的生命周期
+- `slack.py` / `feishu.py` / `telegram.py` / `dingtalk.py` - 平台特定实现（`feishu.py` 在内存中跟踪运行中的 card `message_id`，并就地修补同一 card；`dingtalk.py` 在配置了 `card_template_id` 时可选使用 AI Card 流式更新）
 
-**Components**:
-- `message_bus.py` - Async pub/sub hub (`InboundMessage` → queue → dispatcher; `OutboundMessage` → callbacks → channels)
-- `store.py` - JSON-file persistence mapping `channel_name:chat_id[:topic_id]` → `thread_id` (keys are `channel:chat` for root conversations and `channel:chat:topic` for threaded conversations)
-- `manager.py` - Core dispatcher: creates threads via `client.threads.create()`, routes commands, keeps Slack/Telegram on `client.runs.wait()`, and uses `client.runs.stream(["messages-tuple", "values"])` for Feishu incremental outbound updates
-- `base.py` - Abstract `Channel` base class (start/stop/send lifecycle)
-- `service.py` - Manages lifecycle of all configured channels from `config.yaml`
-- `slack.py` / `feishu.py` / `telegram.py` / `dingtalk.py` - Platform-specific implementations (`feishu.py` tracks the running card `message_id` in memory and patches the same card in place; `dingtalk.py` optionally uses AI Card streaming for in-place updates when `card_template_id` is configured)
+**消息流**：
+1. 外部平台 -> Channel 实现 -> `MessageBus.publish_inbound()`
+2. `ChannelManager._dispatch_loop()` 从队列消费
+3. 对于聊天：通过 Gateway 的 LangGraph 兼容 API 查找/创建线程
+4. Feishu 聊天：`runs.stream()` → 累积 AI 文本 → 发布多个出站更新（`is_final=False`）→ 发布最终出站（`is_final=True`）
+5. Slack/Telegram 聊天：`runs.wait()` → 提取最终响应 → 发布出站
+6. Feishu channel 首先发送一个运行中的回复 card，然后对每个出站更新修补同一 card（card JSON 设置 `config.update_multi=true` 以满足 Feishu 的 patch API 要求）
+7. DingTalk AI Card 模式（配置了 `card_template_id` 时）：`runs.stream()` → 用初始文本创建 card → 通过 `PUT /v1.0/card/streaming` 流式更新 → 在 `is_final=True` 时完成。如果 card 创建或流式失败则回退到 `sampleMarkdown`
+8. 对于命令（`/new`、`/status`、`/models`、`/memory`、`/help`）：本地处理或查询 Gateway API
+9. 出站 → channel 回调 → 平台回复
 
-**Message Flow**:
-1. External platform -> Channel impl -> `MessageBus.publish_inbound()`
-2. `ChannelManager._dispatch_loop()` consumes from queue
-3. For chat: look up/create thread through Gateway's LangGraph-compatible API
-4. Feishu chat: `runs.stream()` → accumulate AI text → publish multiple outbound updates (`is_final=False`) → publish final outbound (`is_final=True`)
-5. Slack/Telegram chat: `runs.wait()` → extract final response → publish outbound
-6. Feishu channel sends one running reply card up front, then patches the same card for each outbound update (card JSON sets `config.update_multi=true` for Feishu's patch API requirement)
-7. DingTalk AI Card mode (when `card_template_id` configured): `runs.stream()` → create card with initial text → stream updates via `PUT /v1.0/card/streaming` → finalize on `is_final=True`. Falls back to `sampleMarkdown` if card creation or streaming fails
-8. For commands (`/new`, `/status`, `/models`, `/memory`, `/help`): handle locally or query Gateway API
-9. Outbound → channel callbacks → platform reply
+**配置**（`config.yaml` -> `channels`）：
+- `langgraph_url` - LangGraph 兼容 Gateway API 基础 URL（默认：`http://localhost:8001/api`）
+- `gateway_url` - 用于辅助命令的 Gateway API URL（默认：`http://localhost:8001`）
+- 在 Docker Compose 中，IM channels 在 `gateway` 容器内运行，因此 `localhost` 指回该容器。使用 `http://gateway:8001/api` 作为 `langgraph_url`，使用 `http://gateway:8001` 作为 `gateway_url`，或设置 `DEER_FLOW_CHANNELS_LANGGRAPH_URL` / `DEER_FLOW_CHANNELS_GATEWAY_URL`。
+- Per-channel 配置：`feishu`（app_id, app_secret）、`slack`（bot_token, app_token）、`telegram`（bot_token）、`dingtalk`（client_id, client_secret，可选 `card_template_id` 用于 AI Card 流式）
 
-**Configuration** (`config.yaml` -> `channels`):
-- `langgraph_url` - LangGraph-compatible Gateway API base URL (default: `http://localhost:8001/api`)
-- `gateway_url` - Gateway API URL for auxiliary commands (default: `http://localhost:8001`)
-- In Docker Compose, IM channels run inside the `gateway` container, so `localhost` points back to that container. Use `http://gateway:8001/api` for `langgraph_url` and `http://gateway:8001` for `gateway_url`, or set `DEER_FLOW_CHANNELS_LANGGRAPH_URL` / `DEER_FLOW_CHANNELS_GATEWAY_URL`.
-- Per-channel configs: `feishu` (app_id, app_secret), `slack` (bot_token, app_token), `telegram` (bot_token), `dingtalk` (client_id, client_secret, optional `card_template_id` for AI Card streaming)
+### Memory 系统（`packages/harness/deerflow/agents/memory/`）
 
+**组件**：
+- `updater.py` - 基于 LLM 的 memory 更新，带事实提取、去重（trim 首尾空白后再比较）和原子文件 I/O
+- `queue.py` - 去重更新的队列（per-thread 去重，可配置等待时间）；在入队时捕获 `user_id`，因此它在线程 Timer 边界外仍然有效
+- `prompt.py` - memory 更新的 prompt 模板
+- `storage.py` - 基于文件的存储，带 per-user 隔离；缓存按 `(user_id, agent_name)` 键
 
-### Memory System (`packages/harness/deerflow/agents/memory/`)
+**Per-User 隔离**：
+- Memory 存储在 `{base_dir}/users/{user_id}/memory.json`（per-user）
+- Per-agent per-user memory 存储在 `{base_dir}/users/{user_id}/agents/{agent_name}/memory.json`
+- 自定义 agent 定义（`SOUL.md` + `config.yaml`）也在 `{base_dir}/users/{user_id}/agents/{agent_name}/`。Legacy 共享布局 `{base_dir}/agents/{agent_name}/` 保持为未迁移安装的回退只读
+- `user_id` 通过 `deerflow.runtime.user_context` 中的 `get_effective_user_id()` 解析
+- 无 auth 模式下，`user_id` 默认为 `"default"`（常量 `DEFAULT_USER_ID`）
+- 配置中的绝对 `storage_path` 选择退出 per-user 隔离
+- **迁移**：运行 `PYTHONPATH=. python scripts/migrate_user_isolation.py` 将 legacy `memory.json`、`threads/` 和 `agents/` 迁移到 per-user 布局。支持 `--dry-run`（预览更改）和 `--user-id USER_ID`（为未拥有的 legacy 数据分配 user，默认为 `default`）。
 
-**Components**:
-- `updater.py` - LLM-based memory updates with fact extraction, whitespace-normalized fact deduplication (trims leading/trailing whitespace before comparing), and atomic file I/O
-- `queue.py` - Debounced update queue (per-thread deduplication, configurable wait time); captures `user_id` at enqueue time so it survives the `threading.Timer` boundary
-- `prompt.py` - Prompt templates for memory updates
-- `storage.py` - File-based storage with per-user isolation; cache keyed by `(user_id, agent_name)` tuple
+**数据结构**（存储在 `{base_dir}/users/{user_id}/memory.json`）：
+- **用户上下文**：`workContext`、`personalContext`、`topOfMind`（1-3 句摘要）
+- **历史**：`recentMonths`、`earlierContext`、`longTermBackground`
+- **事实**：离散事实，带 `id`、`content`、`category`（preference/knowledge/context/behavior/goal）、`confidence`（0-1）、`createdAt`、`source`
 
-**Per-User Isolation**:
-- Memory is stored per-user at `{base_dir}/users/{user_id}/memory.json`
-- Per-agent per-user memory at `{base_dir}/users/{user_id}/agents/{agent_name}/memory.json`
-- Custom agent definitions (`SOUL.md` + `config.yaml`) are also per-user at `{base_dir}/users/{user_id}/agents/{agent_name}/`. The legacy shared layout `{base_dir}/agents/{agent_name}/` remains read-only fallback for unmigrated installations
-- `user_id` is resolved via `get_effective_user_id()` from `deerflow.runtime.user_context`
-- In no-auth mode, `user_id` defaults to `"default"` (constant `DEFAULT_USER_ID`)
-- Absolute `storage_path` in config opts out of per-user isolation
-- **Migration**: Run `PYTHONPATH=. python scripts/migrate_user_isolation.py` to move legacy `memory.json`, `threads/`, and `agents/` into per-user layout. Supports `--dry-run` (preview changes) and `--user-id USER_ID` (assign unowned legacy data to a user, defaults to `default`).
+**工作流**：
+1. `MemoryMiddleware` 过滤消息（用户输入 + 最终 AI 响应），通过 `get_effective_user_id()` 捕获 `user_id`，并将对话排队
+2. 队列去重（30s 默认），批处理更新，per-thread 去重
+3. 后台线程调用 LLM 提取上下文更新和事实，使用存储的 `user_id`（不是 contextvar，因为它在 timer 线程上不可用）
+4. 原子应用更新（临时文件 + 重命名）并使缓存失效，在追加前跳过重复事实内容
+5. 下次交互将 top 15 事实 + 上下文注入到 system prompt 的 `<memory>` 标签中
 
-**Data Structure** (stored in `{base_dir}/users/{user_id}/memory.json`):
-- **User Context**: `workContext`, `personalContext`, `topOfMind` (1-3 sentence summaries)
-- **History**: `recentMonths`, `earlierContext`, `longTermBackground`
-- **Facts**: Discrete facts with `id`, `content`, `category` (preference/knowledge/context/behavior/goal), `confidence` (0-1), `createdAt`, `source`
+Updater 的集中回归覆盖在 `backend/tests/test_memory_updater.py`。
 
-**Workflow**:
-1. `MemoryMiddleware` filters messages (user inputs + final AI responses), captures `user_id` via `get_effective_user_id()`, and queues conversation with the captured `user_id`
-2. Queue debounces (30s default), batches updates, deduplicates per-thread
-3. Background thread invokes LLM to extract context updates and facts, using the stored `user_id` (not the contextvar, which is unavailable on timer threads)
-4. Applies updates atomically (temp file + rename) with cache invalidation, skipping duplicate fact content before append
-5. Next interaction injects top 15 facts + context into `<memory>` tags in system prompt
+**配置**（`config.yaml` → `memory`）：
+- `enabled` / `injection_enabled` - 主开关
+- `storage_path` - memory.json 路径（绝对路径选择退出 per-user 隔离）
+- `debounce_seconds` - 处理前等待时间（默认：30）
+- `model_name` - 更新的 LLM（null = 默认模型）
+- `max_facts` / `fact_confidence_threshold` - 事实存储限制（100 / 0.7）
+- `max_injection_tokens` - prompt 注入的 token 限制（2000）
 
-Focused regression coverage for the updater lives in `backend/tests/test_memory_updater.py`.
+### Reflection 系统（`packages/harness/deerflow/reflection/`）
 
-**Configuration** (`config.yaml` → `memory`):
-- `enabled` / `injection_enabled` - Master switches
-- `storage_path` - Path to memory.json (absolute path opts out of per-user isolation)
-- `debounce_seconds` - Wait time before processing (default: 30)
-- `model_name` - LLM for updates (null = default model)
-- `max_facts` / `fact_confidence_threshold` - Fact storage limits (100 / 0.7)
-- `max_injection_tokens` - Token limit for prompt injection (2000)
+- `resolve_variable(path)` - 导入模块并返回变量（例如 `module.path:variable_name`）
+- `resolve_class(path, base_class)` - 导入并根据基类验证类
 
-### Reflection System (`packages/harness/deerflow/reflection/`)
+### Tracing 系统（`packages/harness/deerflow/tracing/`）
 
-- `resolve_variable(path)` - Import module and return variable (e.g., `module.path:variable_name`)
-- `resolve_class(path, base_class)` - Import and validate class against base class
+支持 LangSmith 和 Langfuse。连接位于两层：
 
-### Tracing System (`packages/harness/deerflow/tracing/`)
+- `factory.py::build_tracing_callbacks()` — 返回当前通过 env vars（`LANGSMITH_TRACING`、`LANGFUSE_TRACING` 等）启用的 providers 的 LangChain `CallbackHandler` 列表。处理程序附加在 **图调用根** 处，用于 in-graph runs（`make_lead_agent` 和 `DeerFlowClient.stream` 在调用图之前都向 `config["callbacks"]` 追加它们），因此单个 run 产生一个 trace，所有节点/LLM/工具调用作为子 spans。独立调用者——任何在图外调用模型的东西（例如 `MemoryUpdater`）——保持 `create_chat_model` 的默认 `attach_tracing=True`，回退到模型级回调附加。
+- `metadata.py::build_langfuse_trace_metadata()` — 为 `RunnableConfig.metadata` 构建 Langfuse 保留的 trace 属性。Langfuse v4 `langchain.CallbackHandler` 将这些属性提升到根 trace（见其 `_parse_langfuse_trace_attributes`），但仅在看到 `on_chain_start(parent_run_id=None)` 时——这就是为什么 callbacks 必须位于图根，而不是模型。
 
-LangSmith and Langfuse are both supported. The wiring lives in two layers:
+**Trace 属性注入点**：`runtime/runs/worker.py::run_agent`（gateway 路径）和 `client.py::DeerFlowClient.stream`（嵌入路径）都在构造图之前将元数据合并到 `config["metadata"]` 中。调用者提供的键通过 `setdefault` 优先保留，因此外部 `session_id` 覆盖被保留。字段映射：
 
-- `factory.py::build_tracing_callbacks()` — returns the LangChain `CallbackHandler` list for the providers currently enabled via env vars (`LANGSMITH_TRACING`, `LANGFUSE_TRACING`, etc.). The handlers are attached at the **graph invocation root** for in-graph runs (`make_lead_agent` and `DeerFlowClient.stream` both append them to `config["callbacks"]` before invoking the graph) so a single run produces one trace with all node / LLM / tool calls as child spans. Standalone callers — anything that invokes a model outside such a graph (e.g. `MemoryUpdater`) — keep `create_chat_model`'s default `attach_tracing=True`, which falls back to model-level callback attachment.
-- `metadata.py::build_langfuse_trace_metadata()` — builds the Langfuse-reserved trace attributes for `RunnableConfig.metadata`. The Langfuse v4 `langchain.CallbackHandler` lifts these onto the root trace (see its `_parse_langfuse_trace_attributes`), but only when it sees `on_chain_start(parent_run_id=None)` — which is why the callbacks have to live at the graph root, not the model.
-
-**Trace-attribute injection points**: both `runtime/runs/worker.py::run_agent` (gateway path) and `client.py::DeerFlowClient.stream` (embedded path) merge the metadata into `config["metadata"]` right before constructing the graph. Caller-supplied keys win via `setdefault`, so an external `session_id` override is preserved. Field mapping:
-
-| Langfuse field         | Source                                       |
+| Langfuse 字段 | 来源 |
 |-----------------------|----------------------------------------------|
-| `langfuse_session_id` | LangGraph `thread_id`                         |
-| `langfuse_user_id`    | `get_effective_user_id()` (`default` in no-auth) |
-| `langfuse_trace_name` | `RunRecord.assistant_id` / client `agent_name` (defaults to `lead-agent`) |
-| `langfuse_tags`       | `env:<DEER_FLOW_ENV>` + `model:<model_name>`  |
+| `langfuse_session_id` | LangGraph `thread_id` |
+| `langfuse_user_id` | `get_effective_user_id()`（无 auth 时为 `default`） |
+| `langfuse_trace_name` | `RunRecord.assistant_id` / client `agent_name`（默认为 `lead-agent`） |
+| `langfuse_tags` | `env:<DEER_FLOW_ENV>` + `model:<model_name>` |
 
-Returns `{}` when Langfuse is not in the enabled providers — LangSmith-only deployments are unaffected. Set `DEER_FLOW_ENV` (or `ENVIRONMENT`) to tag traces by deployment environment. Tests live in `tests/test_tracing_factory.py`, `tests/test_tracing_metadata.py`, `tests/test_worker_langfuse_metadata.py`, and `tests/test_client_langfuse_metadata.py`.
+当 Langfuse 不在启用的 providers 中时返回 `{}` — 仅 LangSmith 的部署不受影响。设置 `DEER_FLOW_ENV`（或 `ENVIRONMENT`）以按部署环境标记 traces。测试位于 `tests/test_tracing_factory.py`、`tests/test_tracing_metadata.py`、`tests/test_worker_langfuse_metadata.py` 和 `tests/test_client_langfuse_metadata.py`。
 
-### Config Schema
+### 配置 Schema
 
-**`config.yaml`** key sections:
-- `models[]` - LLM configs with `use` class path, `supports_thinking`, `supports_vision`, provider-specific fields
-- vLLM reasoning models should use `deerflow.models.vllm_provider:VllmChatModel`; for Qwen-style parsers prefer `when_thinking_enabled.extra_body.chat_template_kwargs.enable_thinking`, and DeerFlow will also normalize the older `thinking` alias
-- `tools[]` - Tool configs with `use` variable path and `group`
-- `tool_groups[]` - Logical groupings for tools
-- `sandbox.use` - Sandbox provider class path
-- `skills.path` / `skills.container_path` - Host and container paths to skills directory
-- `title` - Auto-title generation (enabled, max_words, max_chars, prompt_template)
-- `summarization` - Context summarization (enabled, trigger conditions, keep policy)
-- `subagents.enabled` - Master switch for subagent delegation
-- `memory` - Memory system (enabled, storage_path, debounce_seconds, model_name, max_facts, fact_confidence_threshold, injection_enabled, max_injection_tokens)
+**`config.yaml`** 关键部分：
+- `models[]` - LLM 配置，带 `use` 类路径、`supports_thinking`、`supports_vision`、provider 特定字段
+- vLLM 推理模型应使用 `deerflow.models.vllm_provider:VllmChatModel`；对于 Qwen 风格解析器，优先使用 `when_thinking_enabled.extra_body.chat_template_kwargs.enable_thinking`，DeerFlow 也会规范化 legacy `thinking` 别名
+- `tools[]` - 工具配置，带 `use` 变量路径和 `group`
+- `tool_groups[]` - 逻辑工具分组
+- `sandbox.use` - Sandbox provider 类路径
+- `skills.path` / `skills.container_path` - 主机和容器中 skills 目录的路径
+- `title` - 自动标题生成（enabled, max_words, max_chars, prompt_template）
+- `summarization` - 上下文摘要（enabled, trigger conditions, keep policy）
+- `subagents.enabled` - 子 agent 委托主开关
+- `memory` - Memory 系统（enabled, storage_path, debounce_seconds, model_name, max_facts, fact_confidence_threshold, injection_enabled, max_injection_tokens）
 
-**`extensions_config.json`**:
-- `mcpServers` - Map of server name → config (enabled, type, command, args, env, url, headers, oauth, description)
-- `skills` - Map of skill name → state (enabled)
+**`extensions_config.json`**：
+- `mcpServers` - server 名称 → 配置的映射（enabled, type, command, args, env, url, headers, oauth, description）
+- `skills` - skill 名称 → 状态的映射（enabled）
 
-Both can be modified at runtime via Gateway API endpoints or `DeerFlowClient` methods.
+两者都可以通过 Gateway API 端点或 `DeerFlowClient` 方法在运行时修改。
 
-### Embedded Client (`packages/harness/deerflow/client.py`)
+### 嵌入式 Client（`packages/harness/deerflow/client.py`）
 
-`DeerFlowClient` provides direct in-process access to all DeerFlow capabilities without HTTP services. All return types align with the Gateway API response schemas, so consumer code works identically in HTTP and embedded modes.
+`DeerFlowClient` 提供对所有 DeerFlow 功能的直接进程内访问，无需 HTTP 服务。所有返回类型与 Gateway API 响应 schema 对齐，因此消费者代码在 HTTP 和嵌入模式下工作相同。
 
-**Architecture**: Imports the same `deerflow` modules that Gateway API uses. Shares the same config files and data directories. No FastAPI dependency.
+**架构**：导入 Gateway API 使用的相同 `deerflow` 模块。共享相同的配置文件和数据目录。无 FastAPI 依赖。
 
-**Agent Conversation**:
-- `chat(message, thread_id)` — synchronous, accumulates streaming deltas per message-id and returns the final AI text
-- `stream(message, thread_id)` — subscribes to LangGraph `stream_mode=["values", "messages", "custom"]` and yields `StreamEvent`:
-  - `"values"` — full state snapshot (title, messages, artifacts); AI text already delivered via `messages` mode is **not** re-synthesized here to avoid duplicate deliveries
-  - `"messages-tuple"` — per-chunk update: for AI text this is a **delta** (concat per `id` to rebuild the full message); tool calls and tool results are emitted once each
-  - `"custom"` — forwarded from `StreamWriter`
-  - `"end"` — stream finished (carries cumulative `usage` counted once per message id)
-- Agent created lazily via `create_agent()` + `_build_middlewares()`, same as `make_lead_agent`
-- Supports `checkpointer` parameter for state persistence across turns
-- `reset_agent()` forces agent recreation (e.g. after memory or skill changes)
-- See [docs/STREAMING.md](docs/STREAMING.md) for the full design: why Gateway and DeerFlowClient are parallel paths, LangGraph's `stream_mode` semantics, the per-id dedup invariants, and regression testing strategy
+**Agent 对话**：
+- `chat(message, thread_id)` — 同步，累积每 message-id 的流式 deltas 并返回最终 AI 文本
+- `stream(message, thread_id)` — 订阅 LangGraph `stream_mode=["values", "messages", "custom"]` 并产生 `StreamEvent`：
+  - `"values"` — 完整状态快照（title, messages, artifacts）；AI 文本已通过 `messages` 模式传递，**不会**在这里重新合成以避免重复传递
+  - `"messages-tuple"` — 每次更新：对于 AI 文本，这是一个 **delta**（按 `id` 连接以重建完整消息）；tool calls 和 tool results 各自发出一次
+  - `"custom"` — 从 `StreamWriter` 转发
+  - `"end"` — 流结束（携带按 message id 计数一次的累积 `usage`）
+- Agent 通过 `create_agent()` + `_build_middlewares()` 延迟创建，与 `make_lead_agent` 相同
+- 支持 `checkpointer` 参数用于跨回合的状态持久化
+- `reset_agent()` 强制重新创建 agent（例如在 memory 或 skill 更改后）
+- 详见 [docs/STREAMING.md](docs/STREAMING.md) 获取完整设计：为什么 Gateway 和 DeerFlowClient 是并行路径、LangGraph 的 `stream_mode` 语义、per-id 去重不变量和回归测试策略
 
-**Gateway Equivalent Methods** (replaces Gateway API):
+**Gateway 等效方法**（替换 Gateway API）：
 
-| Category | Methods | Return format |
+| 类别 | 方法 | 返回格式 |
 |----------|---------|---------------|
-| Models | `list_models()`, `get_model(name)` | `{"models": [...]}`, `{name, display_name, ...}` |
-| MCP | `get_mcp_config()`, `update_mcp_config(servers)` | `{"mcp_servers": {...}}` |
-| Skills | `list_skills()`, `get_skill(name)`, `update_skill(name, enabled)`, `install_skill(path)` | `{"skills": [...]}` |
-| Memory | `get_memory()`, `reload_memory()`, `get_memory_config()`, `get_memory_status()` | dict |
-| Uploads | `upload_files(thread_id, files)`, `list_uploads(thread_id)`, `delete_upload(thread_id, filename)` | `{"success": true, "files": [...]}`, `{"files": [...], "count": N}` |
+| Models | `list_models()`、`get_model(name)` | `{"models": [...]}`、`{name, display_name, ...}` |
+| MCP | `get_mcp_config()`、`update_mcp_config(servers)` | `{"mcp_servers": {...}}` |
+| Skills | `list_skills()`、`get_skill(name)`、`update_skill(name, enabled)`、`install_skill(path)` | `{"skills": [...]}` |
+| Memory | `get_memory()`、`reload_memory()`、`get_memory_config()`、`get_memory_status()` | dict |
+| Uploads | `upload_files(thread_id, files)`、`list_uploads(thread_id)`、`delete_upload(thread_id, filename)` | `{"success": true, "files": [...]}`、`{"files": [...], "count": N}` |
 | Artifacts | `get_artifact(thread_id, path)` → `(bytes, mime_type)` | tuple |
 
-**Key difference from Gateway**: Upload accepts local `Path` objects instead of HTTP `UploadFile`, rejects directory paths before copying, and reuses a single worker when document conversion must run inside an active event loop. Artifact returns `(bytes, mime_type)` instead of HTTP Response. The new Gateway-only thread cleanup route deletes `.deer-flow/threads/{thread_id}` after LangGraph thread deletion; there is no matching `DeerFlowClient` method yet. `update_mcp_config()` and `update_skill()` automatically invalidate the cached agent.
+**与 Gateway 的关键区别**：Upload 接受本地 `Path` 对象而不是 HTTP `UploadFile`，在复制前拒绝目录路径，并在活跃事件循环中调用时重用单个 worker。Artifact 返回 `(bytes, mime_type)` 而不是 HTTP Response。新的 Gateway 专用线程清理路由在 LangGraph 线程删除后删除 `.deer-flow/threads/{thread_id}`；还没有等效的 `DeerFlowClient` 方法。`update_mcp_config()` 和 `update_skill()` 自动使缓存的 agent 无效。
 
-**Tests**: `tests/test_client.py` (77 unit tests including `TestGatewayConformance`), `tests/test_client_live.py` (live integration tests, requires config.yaml)
+**测试**：`tests/test_client.py`（77 个单元测试，包括 `TestGatewayConformance`）、`tests/test_client_live.py`（实时集成测试，需要 config.yaml）
 
-**Gateway Conformance Tests** (`TestGatewayConformance`): Validate that every dict-returning client method conforms to the corresponding Gateway Pydantic response model. Each test parses the client output through the Gateway model — if Gateway adds a required field that the client doesn't provide, Pydantic raises `ValidationError` and CI catches the drift. Covers: `ModelsListResponse`, `ModelResponse`, `SkillsListResponse`, `SkillResponse`, `SkillInstallResponse`, `McpConfigResponse`, `UploadResponse`, `MemoryConfigResponse`, `MemoryStatusResponse`.
+**Gateway 一致性测试**（`TestGatewayConformance`）：验证每个字典返回的 client 方法是否符合对应的 Gateway Pydantic 响应模型。每个测试通过 Gateway 模型解析 client 输出——如果 Gateway 添加了 client 不提供的必需字段，Pydantic 引发 `ValidationError`，CI 捕获漂移。覆盖：`ModelsListResponse`、`ModelResponse`、`SkillsListResponse`、`SkillResponse`、`SkillInstallResponse`、`McpConfigResponse`、`UploadResponse`、`MemoryConfigResponse`、`MemoryStatusResponse`。
 
-## Development Workflow
+## 开发工作流
 
-### Test-Driven Development (TDD) — MANDATORY
+### 测试驱动开发（TDD）— 强制
 
-**Every new feature or bug fix MUST be accompanied by unit tests. No exceptions.**
+**每个新功能或 bug 修复必须伴随单元测试。没有例外。**
 
-- Write tests in `backend/tests/` following the existing naming convention `test_<feature>.py`
-- Run the full suite before and after your change: `make test`
-- Tests must pass before a feature is considered complete
-- For lightweight config/utility modules, prefer pure unit tests with no external dependencies
-- If a module causes circular import issues in tests, add a `sys.modules` mock in `tests/conftest.py` (see existing example for `deerflow.subagents.executor`)
+- 在 `backend/tests/` 中编写测试，遵循现有命名约定 `test_<feature>.py`
+- 在更改前后运行完整套件：`make test`
+- 测试通过后才能认为功能完成
+- 对于轻量级配置/工具模块，优先使用无外部依赖的纯单元测试
+- 如果模块在测试中导致循环导入问题，在 `tests/conftest.py` 中添加 `sys.modules` mock（参见 `deerflow.subagents.executor` 的现有示例）
 
 ```bash
-# Run all tests
+# 运行所有测试
 make test
 
-# Run a specific test file
+# 运行特定测试文件
 PYTHONPATH=. uv run pytest tests/test_<feature>.py -v
 ```
 
-### Running the Full Application
+### 运行完整应用
 
-From the **project root** directory:
+从 **项目根目录**：
 ```bash
 make dev
 ```
 
-This starts all services and makes the application available at `http://localhost:2026`.
+这启动所有服务，使应用在 `http://localhost:2026` 可用。
 
-**All startup modes:**
+**所有启动模式：**
 
-| | **Local Foreground** | **Local Daemon** | **Docker Dev** | **Docker Prod** |
+| | **本地前台** | **本地守护进程** | **Docker Dev** | **Docker Prod** |
 |---|---|---|---|---|
 | **Dev** | `./scripts/serve.sh --dev`<br/>`make dev` | `./scripts/serve.sh --dev --daemon`<br/>`make dev-daemon` | `./scripts/docker.sh start`<br/>`make docker-start` | — |
 | **Prod** | `./scripts/serve.sh --prod`<br/>`make start` | `./scripts/serve.sh --prod --daemon`<br/>`make start-daemon` | — | `./scripts/deploy.sh`<br/>`make up` |
 
-| Action | Local | Docker Dev | Docker Prod |
+| 操作 | 本地 | Docker Dev | Docker Prod |
 |---|---|---|---|
-| **Stop** | `./scripts/serve.sh --stop`<br/>`make stop` | `./scripts/docker.sh stop`<br/>`make docker-stop` | `./scripts/deploy.sh down`<br/>`make down` |
-| **Restart** | `./scripts/serve.sh --restart [flags]` | `./scripts/docker.sh restart` | — |
+| **停止** | `./scripts/serve.sh --stop`<br/>`make stop` | `./scripts/docker.sh stop`<br/>`make docker-stop` | `./scripts/deploy.sh down`<br/>`make down` |
+| **重启** | `./scripts/serve.sh --restart [flags]` | `./scripts/docker.sh restart` | — |
 
-**Nginx routing**:
-- `/api/langgraph/*` → Gateway embedded runtime (8001), rewritten to `/api/*`
-- `/api/*` (other) → Gateway API (8001)
-- `/` (non-API) → Frontend (3000)
+**Nginx 路由**：
+- `/api/langgraph/*` → Gateway 嵌入式运行时（8001），重写为 `/api/*`
+- `/api/*`（其他）→ Gateway API（8001）
+- `/`（非 API）→ Frontend（3000）
 
-### Running Backend Services Separately
+### 分别运行后端服务
 
-From the **backend** directory:
+从 **backend 目录**：
 
 ```bash
 # Gateway API
 make gateway
 ```
 
-Direct access (without nginx):
-- Gateway: `http://localhost:8001`
+直接访问（无 nginx）：
+- Gateway：`http://localhost:8001`
 
-### Frontend Configuration
+### 前端配置
 
-The frontend uses environment variables to connect to backend services:
-- `NEXT_PUBLIC_LANGGRAPH_BASE_URL` - Defaults to `/api/langgraph` (through nginx)
-- `NEXT_PUBLIC_BACKEND_BASE_URL` - Defaults to empty string (through nginx)
+前端使用环境变量连接后端服务：
+- `NEXT_PUBLIC_LANGGRAPH_BASE_URL` - 默认为 `/api/langgraph`（通过 nginx）
+- `NEXT_PUBLIC_BACKEND_BASE_URL` - 默认为空字符串（通过 nginx）
 
-When using `make dev` from root, the frontend automatically connects through nginx.
+使用 `make dev` 从根目录时，前端自动通过 nginx 连接。
 
-## Key Features
+## 关键功能
 
-### File Upload
+### 文件上传
 
-Multi-file upload with automatic document conversion:
-- Endpoint: `POST /api/threads/{thread_id}/uploads`
-- Supports: PDF, PPT, Excel, Word documents (converted via `markitdown`)
-- Rejects directory inputs before copying so uploads stay all-or-nothing
-- Reuses one conversion worker per request when called from an active event loop
-- Files stored in thread-isolated directories
-- Duplicate filenames in a single upload request are auto-renamed with `_N` suffixes so later files do not truncate earlier files
-- Agent receives uploaded file list via `UploadsMiddleware`
+多文件上传，带自动文档转换：
+- 端点：`POST /api/threads/{thread_id}/uploads`
+- 支持：PDF、PPT、Excel、Word 文档（通过 `markitdown` 转换）
+- 在复制前拒绝目录输入，因此上传保持全有或全无
+- 从活跃事件循环调用时重用单个转换 worker
+- 文件存储在线程隔离目录中
+- 单个上传请求中的重复文件名自动重命名为 `_N` 后缀，因此后来的文件不会截断早期的文件
+- Agent 通过 `UploadsMiddleware` 接收上传文件列表
 
-See [docs/FILE_UPLOAD.md](docs/FILE_UPLOAD.md) for details.
+详见 [docs/FILE_UPLOAD.md](docs/FILE_UPLOAD.md)。
 
 ### Plan Mode
 
-TodoList middleware for complex multi-step tasks:
-- Controlled via runtime config: `config.configurable.is_plan_mode = True`
-- Provides `write_todos` tool for task tracking
-- One task in_progress at a time, real-time updates
+用于复杂多步任务的 TodoList middleware：
+- 通过运行时配置控制：`config.configurable.is_plan_mode = True`
+- 提供 `write_todos` 工具进行任务跟踪
+- 一次只能有一个任务 in_progress，实时更新
 
-See [docs/plan_mode_usage.md](docs/plan_mode_usage.md) for details.
+详见 [docs/plan_mode_usage.md](docs/plan_mode_usage.md)。
 
-### Context Summarization
+### 上下文摘要
 
-Automatic conversation summarization when approaching token limits:
-- Configured in `config.yaml` under `summarization` key
-- Trigger types: tokens, messages, or fraction of max input
-- Keeps recent messages while summarizing older ones
+接近 token 限制时的自动对话摘要：
+- 在 `config.yaml` 的 `summarization` 键下配置
+- 触发类型：tokens、messages 或 max input 的 fraction
+- 在总结旧消息时保留 recent messages
 
-See [docs/summarization.md](docs/summarization.md) for details.
+详见 [docs/summarization.md](docs/summarization.md)。
 
-### Vision Support
+### Vision 支持
 
-For models with `supports_vision: true`:
-- `ViewImageMiddleware` processes images in conversation
-- `view_image_tool` added to agent's toolset
-- Images automatically converted to base64 and injected into state
+对于带 `supports_vision: true` 的模型：
+- `ViewImageMiddleware` 处理对话中的图像
+- `view_image_tool` 添加到 agent 的工具集
+- 图像自动转换为 base64 并注入到 state
 
-## Code Style
+## 代码风格
 
-- Uses `ruff` for linting and formatting
-- Line length: 240 characters
-- Python 3.12+ with type hints
-- Double quotes, space indentation
+- 使用 `ruff` 进行 linting 和格式化
+- 行长度：240 个字符
+- Python 3.12+，带类型提示
+- 双引号，空格缩进
 
-## Documentation
+## 文档
 
-See `docs/` directory for detailed documentation:
-- [CONFIGURATION.md](docs/CONFIGURATION.md) - Configuration options
-- [ARCHITECTURE.md](docs/ARCHITECTURE.md) - Architecture details
-- [API.md](docs/API.md) - API reference
-- [SETUP.md](docs/SETUP.md) - Setup guide
-- [FILE_UPLOAD.md](docs/FILE_UPLOAD.md) - File upload feature
-- [PATH_EXAMPLES.md](docs/PATH_EXAMPLES.md) - Path types and usage
-- [summarization.md](docs/summarization.md) - Context summarization
-- [plan_mode_usage.md](docs/plan_mode_usage.md) - Plan mode with TodoList
+详见 `docs/` 目录：
+- [CONFIGURATION.md](docs/CONFIGURATION.md) - 配置选项
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md) - 架构详情
+- [API.md](docs/API.md) - API 参考
+- [SETUP.md](docs/SETUP.md) - 设置指南
+- [FILE_UPLOAD.md](docs/FILE_UPLOAD.md) - 文件上传功能
+- [PATH_EXAMPLES.md](docs/PATH_EXAMPLES.md) - 路径类型和用法
+- [summarization.md](docs/summarization.md) - 上下文摘要
+- [plan_mode_usage.md](docs/plan_mode_usage.md) - Plan Mode 与 TodoList
