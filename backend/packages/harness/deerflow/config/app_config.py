@@ -327,10 +327,10 @@ class AppConfig(BaseModel):
 # Compatibility singleton layer for code paths that have not yet been
 # migrated to explicit ``AppConfig`` threading. New composition roots should
 # prefer constructing ``AppConfig`` once and passing it down directly.
-_app_config: AppConfig | None = None
-_app_config_path: Path | None = None
-_app_config_mtime: float | None = None
-_app_config_is_custom = False
+_app_config: AppConfig | None = None            # 缓存的AppConfig单例
+_app_config_path: Path | None = None            # 当前配置文件路径
+_app_config_mtime: float | None = None          # 配置文件的修改时间
+_app_config_is_custom = False                   # 是否是自定义配置
 _current_app_config: ContextVar[AppConfig | None] = ContextVar("deerflow_current_app_config", default=None)
 _current_app_config_stack: ContextVar[tuple[AppConfig | None, ...]] = ContextVar("deerflow_current_app_config_stack", default=())
 
