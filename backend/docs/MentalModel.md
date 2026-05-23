@@ -97,7 +97,61 @@ RunnableConfig (LangGraph) → 怎么跑（thread_id, callbacks, recursion_limit
 
 ---
 
-### 5. LangGraph Studio 的角色
+### 5. resolve_class / resolve_variable 动态加载
+
+**本质：** 字符串路径 → 运行时 Python 对象
+
+```
+"langchain_openai:ChatOpenAI" → resolve_class() → <class ChatOpenAI>
+```
+
+**为什么需要？**
+- config.yaml 只能用字符串
+- 运行时根据字符串动态加载真正的 class
+- 换模型不改代码，只改配置
+
+**类似设计：** LangChain 的 `_import_module` + `getattr`
+
+---
+
+### 6. create_chat_model 的输入输出
+
+**输入：** name + thinking_enabled + app_config
+**输出：** 配置好的 ChatOpenAI/Claude 实例
+
+**核心流程：**
+```
+config.yaml 的 ModelConfig
+    ↓ model_dump() 去掉元数据
+剩余真正的参数（api_key, base_url...）
+    ↓ thinking 模式处理
+    ↓ provider 特化处理
+    ↓ stream_usage 强制开启
+    ↓ new ChatOpenAI(**参数)
+```
+
+---
+
+### 7. attach_tracing 的两种场景
+
+| 调用者 | attach_tracing | 原因 |
+|--------|---------------|------|
+| MemoryUpdater（后台独立） | 默认 True | 不在 LangGraph run 内，需要自己 trace |
+| make_lead_agent（graph 内部） | 必须传 False | graph root 已加 tracing，避免重复 |
+
+---
+
+### 8. factory.py 的脏代码
+
+**问题：** 10 个字段 exclude + 4 种 thinking 关闭分支 + issubclass 判断 class
+
+**本质：** provider 差异被堆在 factory 里，没用多态抽象
+
+**干净设计应该是：** 各 provider class 自己实现 `disable_thinking()` 方法
+
+---
+
+### 9. LangGraph Studio 的角色
 
 - 不是 DeerFlow 的一部分，是 LangGraph 的可视化工具
 - DeerFlow 通过 `langgraph.json` 指向 `make_lead_agent` factory

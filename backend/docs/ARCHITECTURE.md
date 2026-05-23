@@ -48,8 +48,6 @@
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-## 组件详情
-
 ### Gateway Embedded Agent Runtime
 
 Agent 运行时嵌入在 FastAPI Gateway 中，基于 LangGraph 构建，实现稳健的多 Agent 工作流编排。Nginx 将 `/api/langgraph/*` 重写为 Gateway 原生的 `/api/*` 路由，因此公开 API 与 LangGraph SDK 客户端保持兼容，无需运行独立的 LangGraph Server。

@@ -49,8 +49,7 @@ deer-flow/
 │   │           ├── config/            # 配置系统（app, model, sandbox, tool 等）
 │   │           ├── community/         # Community 工具（tavily, jina_ai, firecrawl, image_search, aio_sandbox）
 │   │           ├── reflection/        # 动态模块加载（resolve_variable, resolve_class）
-│   │           ├── utils/             # 工具函数（network, readability）
-│   │           └── client.py          # 嵌入式 Python client（DeerFlowClient）
+│   │           └── utils/             # 工具函数（network, readability）
 │   ├── app/                   # 应用层（导入：app.*）
 │   │   ├── gateway/           # FastAPI Gateway API
 │   │   │   ├── app.py         # FastAPI 应用
@@ -443,42 +442,7 @@ Updater 的集中回归覆盖在 `backend/tests/test_memory_updater.py`。
 - `mcpServers` - server 名称 → 配置的映射（enabled, type, command, args, env, url, headers, oauth, description）
 - `skills` - skill 名称 → 状态的映射（enabled）
 
-两者都可以通过 Gateway API 端点或 `DeerFlowClient` 方法在运行时修改。
-
-### 嵌入式 Client（`packages/harness/deerflow/client.py`）
-
-`DeerFlowClient` 提供对所有 DeerFlow 功能的直接进程内访问，无需 HTTP 服务。所有返回类型与 Gateway API 响应 schema 对齐，因此消费者代码在 HTTP 和嵌入模式下工作相同。
-
-**架构**：导入 Gateway API 使用的相同 `deerflow` 模块。共享相同的配置文件和数据目录。无 FastAPI 依赖。
-
-**Agent 对话**：
-- `chat(message, thread_id)` — 同步，累积每 message-id 的流式 deltas 并返回最终 AI 文本
-- `stream(message, thread_id)` — 订阅 LangGraph `stream_mode=["values", "messages", "custom"]` 并产生 `StreamEvent`：
-  - `"values"` — 完整状态快照（title, messages, artifacts）；AI 文本已通过 `messages` 模式传递，**不会**在这里重新合成以避免重复传递
-  - `"messages-tuple"` — 每次更新：对于 AI 文本，这是一个 **delta**（按 `id` 连接以重建完整消息）；tool calls 和 tool results 各自发出一次
-  - `"custom"` — 从 `StreamWriter` 转发
-  - `"end"` — 流结束（携带按 message id 计数一次的累积 `usage`）
-- Agent 通过 `create_agent()` + `_build_middlewares()` 延迟创建，与 `make_lead_agent` 相同
-- 支持 `checkpointer` 参数用于跨回合的状态持久化
-- `reset_agent()` 强制重新创建 agent（例如在 memory 或 skill 更改后）
-- 详见 [docs/STREAMING.md](docs/STREAMING.md) 获取完整设计：为什么 Gateway 和 DeerFlowClient 是并行路径、LangGraph 的 `stream_mode` 语义、per-id 去重不变量和回归测试策略
-
-**Gateway 等效方法**（替换 Gateway API）：
-
-| 类别 | 方法 | 返回格式 |
-|----------|---------|---------------|
-| Models | `list_models()`、`get_model(name)` | `{"models": [...]}`、`{name, display_name, ...}` |
-| MCP | `get_mcp_config()`、`update_mcp_config(servers)` | `{"mcp_servers": {...}}` |
-| Skills | `list_skills()`、`get_skill(name)`、`update_skill(name, enabled)`、`install_skill(path)` | `{"skills": [...]}` |
-| Memory | `get_memory()`、`reload_memory()`、`get_memory_config()`、`get_memory_status()` | dict |
-| Uploads | `upload_files(thread_id, files)`、`list_uploads(thread_id)`、`delete_upload(thread_id, filename)` | `{"success": true, "files": [...]}`、`{"files": [...], "count": N}` |
-| Artifacts | `get_artifact(thread_id, path)` → `(bytes, mime_type)` | tuple |
-
-**与 Gateway 的关键区别**：Upload 接受本地 `Path` 对象而不是 HTTP `UploadFile`，在复制前拒绝目录路径，并在活跃事件循环中调用时重用单个 worker。Artifact 返回 `(bytes, mime_type)` 而不是 HTTP Response。新的 Gateway 专用线程清理路由在 LangGraph 线程删除后删除 `.deer-flow/threads/{thread_id}`；还没有等效的 `DeerFlowClient` 方法。`update_mcp_config()` 和 `update_skill()` 自动使缓存的 agent 无效。
-
-**测试**：`tests/test_client.py`（77 个单元测试，包括 `TestGatewayConformance`）、`tests/test_client_live.py`（实时集成测试，需要 config.yaml）
-
-**Gateway 一致性测试**（`TestGatewayConformance`）：验证每个字典返回的 client 方法是否符合对应的 Gateway Pydantic 响应模型。每个测试通过 Gateway 模型解析 client 输出——如果 Gateway 添加了 client 不提供的必需字段，Pydantic 引发 `ValidationError`，CI 捕获漂移。覆盖：`ModelsListResponse`、`ModelResponse`、`SkillsListResponse`、`SkillResponse`、`SkillInstallResponse`、`McpConfigResponse`、`UploadResponse`、`MemoryConfigResponse`、`MemoryStatusResponse`。
+两者都可以通过 Gateway API 端点修改。
 
 ## 开发工作流
 

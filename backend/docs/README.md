@@ -16,7 +16,6 @@
 
 | 文档 | 描述 |
 |----------|-------------|
-| [STREAMING.md](STREAMING.md) | Token 级流式设计：Gateway vs DeerFlowClient 路径、`stream_mode` 语义、per-id dedup |
 | [FILE_UPLOAD.md](FILE_UPLOAD.md) | 文件上传功能 |
 | [PATH_EXAMPLES.md](PATH_EXAMPLES.md) | 路径类型与使用示例 |
 | [summarization.md](summarization.md) | 上下文摘要功能 |
@@ -50,7 +49,6 @@ docs/
 ├── PATH_EXAMPLES.md           # 路径使用示例
 ├── summarization.md           # 摘要功能
 ├── plan_mode_usage.md         # Plan mode 功能
-├── STREAMING.md               # Token 级流式设计
 ├── AUTO_TITLE_GENERATION.md   # 标题生成
 ├── TITLE_GENERATION_IMPLEMENTATION.md  # 标题实现细节
 └── TODO.md                    # 路线图与问题
