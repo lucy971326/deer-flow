@@ -4,7 +4,7 @@
 
 ## 设计目标
 
-认证模块的核心目标是把 DeerFlow 从“本地单用户工具”提升为“可多用户部署的 agent runtime”，并让用户身份贯穿 HTTP API、LangGraph-compatible runtime、文件系统、memory、自定义 agent 和反馈数据。
+认证模块的核心目标是把 DeerFlow 从"本地单用户工具"提升为"可多用户部署的 agent runtime"，并让用户身份贯穿 HTTP API、LangGraph-compatible runtime、文件系统、memory、自定义 agent 和反馈数据。
 
 设计约束：
 
@@ -117,7 +117,7 @@ enum UserScope:
 
 `POST /api/v1/auth/register` 创建普通 `user`，并自动登录。
 
-当前实现允许在没有 admin 时注册普通用户，但 `setup-status` 仍会返回 `needs_setup=true`，因为 admin 仍不存在。这是当前产品策略边界：如果后续要求“必须先初始化 admin 才能注册普通用户”，需要在 `/register` 增加 admin-exists gate。
+当前实现允许在没有 admin 时注册普通用户，但 `setup-status` 仍会返回 `needs_setup=true`，因为 admin 仍不存在。这是当前产品策略边界：如果后续要求"必须先初始化 admin 才能注册普通用户"，需要在 `/register` 增加 admin-exists gate。
 
 ### 改密码与 reset setup
 
@@ -251,7 +251,7 @@ IM channel worker 不是浏览器用户，不持有浏览器 cookie。它们通�
 - 同时带匹配的 CSRF cookie/header。
 - 服务端识别为内部用户，`id="default"`、`system_role="internal"`。
 
-这意味着 channel 产生的数据默认进入 `default` 用户桶。这个选择适合“平台级 bot 身份”，但不是“每个 IM 用户单独隔离”。如果后续要做到外部 IM 用户隔离，需要把外部 platform user 映射到 DeerFlow user，并让 channel manager 设置对应的 scoped identity。
+这意味着 channel 产生的数据默认进入 `default` 用户桶。这个选择适合"平台级 bot 身份"，但不是"每个 IM 用户单独隔离"。如果后续要做到外部 IM 用户隔离，需要把外部 platform user 映射到 DeerFlow user，并让 channel manager 设置对应的 scoped identity。
 
 ## LangGraph-compatible 认证
 
@@ -289,7 +289,7 @@ PYTHONPATH=. python scripts/migrate_user_isolation.py --user-id <target-user-id>
 必须长期保持的不变量：
 
 - JWT 只在 HttpOnly cookie 中传输，不出现在响应 JSON。
-- 任何非 public HTTP 路由都不能只靠“cookie 存在”放行，必须严格验证 JWT。
+- 任何非 public HTTP 路由都不能只靠"cookie 存在"放行，必须严格验证 JWT。
 - `token_version` 不匹配必须拒绝，保证改密码 / reset 后旧 session 失效。
 - 客户端 metadata 中的 `user_id` / `owner_id` 必须剥离。
 - repository 默认 `AUTO` 必须从当前用户上下文解析，不能静默退化成全局查询。

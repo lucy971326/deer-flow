@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def _deep_merge_dicts(base: dict | None, override: dict) -> dict:
-    """Recursively merge two dictionaries without mutating the inputs."""
+    """递归合并两个字典，不修改输入。"""
     merged = dict(base or {})
     for key, value in override.items():
         if isinstance(value, dict) and isinstance(merged.get(key), dict):
@@ -21,23 +21,12 @@ def _deep_merge_dicts(base: dict | None, override: dict) -> dict:
     return merged
 
 
-def _vllm_disable_chat_template_kwargs(chat_template_kwargs: dict) -> dict:
-    """Build the disable payload for vLLM/Qwen chat template kwargs."""
-    disable_kwargs: dict[str, bool] = {}
-    if "thinking" in chat_template_kwargs:
-        disable_kwargs["thinking"] = False
-    if "enable_thinking" in chat_template_kwargs:
-        disable_kwargs["enable_thinking"] = False
-    return disable_kwargs
-
-
 def _enable_stream_usage_by_default(model_use_path: str, model_settings_from_config: dict) -> None:
-    """Enable stream usage for OpenAI-compatible models unless explicitly configured.
+    """为 OpenAI 兼容模型默认启用 stream usage，除非显式配置。
 
-    LangChain only auto-enables ``stream_usage`` for OpenAI models when no custom
-    base URL or client is configured. DeerFlow frequently uses OpenAI-compatible
-    gateways, so token usage tracking would otherwise stay empty and the
-    TokenUsageMiddleware would have nothing to log.
+    LangChain 仅在未配置自定义 base URL 或 client 时为 OpenAI 模型自动启用
+    ``stream_usage``。DeerFlow 频繁使用 OpenAI 兼容网关，否则 token 使用量
+    跟踪将保持为空，TokenUsageMiddleware 将没有内容可记录。
     """
     if model_use_path != "langchain_openai:ChatOpenAI":
         return
@@ -48,34 +37,35 @@ def _enable_stream_usage_by_default(model_use_path: str, model_settings_from_con
 
 
 def create_chat_model(name: str | None = None, thinking_enabled: bool = False, *, app_config: AppConfig | None = None, attach_tracing: bool = True, **kwargs) -> BaseChatModel:
-    """Create a chat model instance from the config.
+    """从配置创建 chat model 实例。
 
     Args:
-        name: The name of the model to create. If None, the first model in the config will be used.
-        thinking_enabled: Enable the model's extended-thinking mode when supported.
-        app_config: Explicit application config; falls back to the cached global if omitted.
-        attach_tracing: When True (default), attach tracing callbacks (Langfuse,
-            LangSmith) directly to the model instance. Standalone callers — anything
-            that invokes the model outside a LangGraph run that already wires tracing
-            at the invocation root (``MemoryUpdater``, ad-hoc utilities, etc.) — keep
-            this default so the model-level callback still produces traces. Callers
-            that already attach tracing at the graph root (``make_lead_agent``, the
-            in-graph ``TitleMiddleware``) MUST pass ``attach_tracing=False``; otherwise
-            the same LLM call emits duplicate spans (one rooted at the graph, one at
-            the model) and ``session_id`` / ``user_id`` metadata never reach the trace
-            because the model becomes a nested observation whose ``langfuse_*`` keys
-            get stripped.
+        name: 要创建的模型名称。若为 None，则使用配置中的第一个模型。
+        thinking_enabled: 支持时启用模型的扩展思考模式。
+        app_config: 显式传入的 app config；省略时回退到缓存的全局配置。
+        attach_tracing: 是否在 model 上附加 tracing callbacks（Langfuse、LangSmith）。
+
+            - 默认 True：独立调用（不在 LangGraph run 内的代码，如 MemoryUpdater）使用。
+              此时 model 自己会产生 trace，与 LangGraph trace 分开。
+
+            - 必须传 False：graph root 已附加 tracing 后，graph 内部的调用
+              （如 make_lead_agent 内部、TitleMiddleware）必须传 False，
+              否则同一 LLM 调用会产生两个重复 span，且 session_id/user_id
+              无法正确传播到 root trace。
 
     Returns:
-        A chat model instance.
+        chat model 实例。
     """
     config = app_config or get_app_config()
     if name is None:
         name = config.models[0].name
+
     model_config = config.get_model_config(name)
     if model_config is None:
         raise ValueError(f"Model {name} not found in config") from None
+
     model_class = resolve_class(model_config.use, BaseChatModel)
+
     model_settings_from_config = model_config.model_dump(
         exclude_none=True,
         exclude={
@@ -91,8 +81,9 @@ def create_chat_model(name: str | None = None, thinking_enabled: bool = False, *
             "supports_vision",
         },
     )
-    # Compute effective when_thinking_enabled by merging in the `thinking` shortcut field.
-    # The `thinking` shortcut is equivalent to setting when_thinking_enabled["thinking"].
+
+    # 计算 effective when_thinking_enabled，合并 `thinking` 快捷字段。
+    # `thinking` 快捷方式等价于设置 when_thinking_enabled["thinking"]。
     has_thinking_settings = (model_config.when_thinking_enabled is not None) or (model_config.thinking is not None)
     effective_wte: dict = dict(model_config.when_thinking_enabled) if model_config.when_thinking_enabled else {}
     if model_config.thinking is not None:
@@ -105,23 +96,17 @@ def create_chat_model(name: str | None = None, thinking_enabled: bool = False, *
             model_settings_from_config.update(effective_wte)
     if not thinking_enabled:
         if model_config.when_thinking_disabled is not None:
-            # User-provided disable settings take full precedence
+            # 用户提供的禁用设置优先
             model_settings_from_config.update(model_config.when_thinking_disabled)
         elif has_thinking_settings and effective_wte.get("extra_body", {}).get("thinking", {}).get("type"):
-            # OpenAI-compatible gateway: thinking is nested under extra_body
+            # OpenAI 兼容网关：thinking 嵌套在 extra_body 下
             model_settings_from_config["extra_body"] = _deep_merge_dicts(
                 model_settings_from_config.get("extra_body"),
                 {"thinking": {"type": "disabled"}},
             )
             model_settings_from_config["reasoning_effort"] = "minimal"
-        elif has_thinking_settings and (disable_chat_template_kwargs := _vllm_disable_chat_template_kwargs(effective_wte.get("extra_body", {}).get("chat_template_kwargs") or {})):
-            # vLLM uses chat template kwargs to switch thinking on/off.
-            model_settings_from_config["extra_body"] = _deep_merge_dicts(
-                model_settings_from_config.get("extra_body"),
-                {"chat_template_kwargs": disable_chat_template_kwargs},
-            )
         elif has_thinking_settings and effective_wte.get("thinking", {}).get("type"):
-            # Native langchain_anthropic: thinking is a direct constructor parameter
+            # Native langchain_anthropic: thinking 是直接构造函数参数
             model_settings_from_config["thinking"] = {"type": "disabled"}
     if not model_config.supports_reasoning_effort:
         kwargs.pop("reasoning_effort", None)
@@ -129,14 +114,14 @@ def create_chat_model(name: str | None = None, thinking_enabled: bool = False, *
 
     _enable_stream_usage_by_default(model_config.use, model_settings_from_config)
 
-    # For Codex Responses API models: map thinking mode to reasoning_effort
+    # 对于 Codex Responses API 模型：将 thinking 模式映射到 reasoning_effort
     from deerflow.models.openai_codex_provider import CodexChatModel
 
     if issubclass(model_class, CodexChatModel):
-        # The ChatGPT Codex endpoint currently rejects max_tokens/max_output_tokens.
+        # ChatGPT Codex 端点当前拒绝 max_tokens/max_output_tokens。
         model_settings_from_config.pop("max_tokens", None)
 
-        # Use explicit reasoning_effort from frontend if provided (low/medium/high)
+        # 若前端提供了显式的 reasoning_effort 则使用（low/medium/high）
         explicit_effort = kwargs.pop("reasoning_effort", None)
         if not thinking_enabled:
             model_settings_from_config["reasoning_effort"] = "none"
@@ -145,17 +130,10 @@ def create_chat_model(name: str | None = None, thinking_enabled: bool = False, *
         elif "reasoning_effort" not in model_settings_from_config:
             model_settings_from_config["reasoning_effort"] = "medium"
 
-    # For MindIE models: enforce conservative retry defaults.
-    # Timeout normalization is handled inside MindIEChatModel itself.
-    if getattr(model_class, "__name__", "") == "MindIEChatModel":
-        # Enforce max_retries constraint to prevent cascading timeouts.
-        model_settings_from_config["max_retries"] = model_settings_from_config.get("max_retries", 1)
-
-    # Ensure stream_usage is enabled so that token usage metadata is available
-    # in streaming responses.  LangChain's BaseChatOpenAI only defaults
-    # stream_usage=True when no custom base_url/api_base is set, so models
-    # hitting third-party endpoints (e.g. doubao, deepseek) silently lose
-    # usage data.  We default it to True unless explicitly configured.
+    # 确保 stream_usage 已启用，以便在流式响应中获取 token 使用量元数据。
+    # LangChain 的 BaseChatOpenAI 仅在未设置自定义 base_url/api_base 时才默认
+    # stream_usage=True，因此访问第三方端点（如 doubao、deepseek）的模型会静默
+    # 丢失 usage 数据。除非显式配置，否则我们默认将其设为 True。
     if "stream_usage" not in model_settings_from_config and "stream_usage" not in kwargs:
         if "stream_usage" in getattr(model_class, "model_fields", {}):
             model_settings_from_config["stream_usage"] = True

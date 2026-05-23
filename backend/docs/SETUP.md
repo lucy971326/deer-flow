@@ -1,98 +1,98 @@
-# Setup Guide
+# 快速上手指南
 
-Quick setup instructions for DeerFlow.
+DeerFlow 快速上手说明。
 
-## Configuration Setup
+## 配置
 
-DeerFlow uses a YAML configuration file that should be placed in the **project root directory**.
+DeerFlow 使用 YAML 配置文件，应放置在**项目根目录**。
 
-### Steps
+### 步骤
 
-1. **Navigate to project root**:
+1. **进入项目根目录**：
    ```bash
    cd /path/to/deer-flow
    ```
 
-2. **Copy example configuration**:
+2. **复制示例配置**：
    ```bash
    cp config.example.yaml config.yaml
    ```
 
-3. **Edit configuration**:
+3. **编辑配置**：
    ```bash
-   # Option A: Set environment variables (recommended)
+   # 选项 A：设置环境变量（推荐）
    export OPENAI_API_KEY="your-key-here"
 
-   # Optional: pin the project root when running from another directory
+   # 可选：当从其他目录运行时固定项目根目录
    export DEER_FLOW_PROJECT_ROOT="/path/to/deer-flow"
 
-   # Option B: Edit config.yaml directly
-   vim config.yaml  # or your preferred editor
+   # 选项 B：直接编辑 config.yaml
+   vim config.yaml  # 或你喜欢的编辑器
    ```
 
-4. **Verify configuration**:
+4. **验证配置**：
    ```bash
    cd backend
    python -c "from deerflow.config import get_app_config; print('✓ Config loaded:', get_app_config().models[0].name)"
    ```
 
-## Important Notes
+## 重要说明
 
-- **Location**: `config.yaml` should be in `deer-flow/` (project root)
-- **Git**: `config.yaml` is automatically ignored by git (contains secrets)
-- **Runtime root**: Set `DEER_FLOW_PROJECT_ROOT` if DeerFlow may start from outside the project root
-- **Runtime data**: State defaults to `.deer-flow` under the project root; set `DEER_FLOW_HOME` to move it
-- **Skills**: Skills default to `skills/` under the project root; set `DEER_FLOW_SKILLS_PATH` or `skills.path` to move them
+- **位置**：`config.yaml` 应在 `deer-flow/`（项目根目录）
+- **Git**：`config.yaml` 自动被 git 忽略（包含 secrets）
+- **运行时根目录**：如果 DeerFlow 可能从项目根外启动，设置 `DEER_FLOW_PROJECT_ROOT`
+- **运行时数据**：状态默认为项目根目录下的 `.deer-flow`；设置 `DEER_FLOW_HOME` 可以移动它
+- **Skills**：Skills 默认为项目根目录下的 `skills/`；设置 `DEER_FLOW_SKILLS_PATH` 或 `skills.path` 可以移动它们
 
-## Configuration File Locations
+## 配置文件位置
 
-The backend searches for `config.yaml` in this order:
+后端按此顺序搜索 `config.yaml`：
 
-1. Explicit `config_path` argument from code
-2. `DEER_FLOW_CONFIG_PATH` environment variable (if set)
-3. `config.yaml` under `DEER_FLOW_PROJECT_ROOT`, or the current working directory when `DEER_FLOW_PROJECT_ROOT` is unset
-4. Legacy backend/repository-root locations for monorepo compatibility
+1. 代码中的显式 `config_path` 参数
+2. `DEER_FLOW_CONFIG_PATH` 环境变量（如果设置）
+3. `DEER_FLOW_PROJECT_ROOT` 下的 `config.yaml`，或当 `DEER_FLOW_PROJECT_ROOT` 未设置时为当前工作目录
+4. Legacy backend/repository-root locations 用于 monorepo 兼容性
 
-**Recommended**: Place `config.yaml` in project root (`deer-flow/config.yaml`).
+**推荐**：将 `config.yaml` 放在项目根目录（`deer-flow/config.yaml`）。
 
-## Sandbox Setup (Optional but Recommended)
+## Sandbox 设置（可选但推荐）
 
-If you plan to use Docker/Container-based sandbox (configured in `config.yaml` under `sandbox.use: deerflow.community.aio_sandbox:AioSandboxProvider`), it's highly recommended to pre-pull the container image:
+如果你计划使用 Docker/容器化 sandbox（在 `config.yaml` 中配置为 `sandbox.use: deerflow.community.aio_sandbox:AioSandboxProvider`），强烈建议预拉取容器镜像：
 
 ```bash
-# From project root
+# 从项目根目录
 make setup-sandbox
 ```
 
-**Why pre-pull?**
-- The sandbox image (~500MB+) is pulled on first use, causing a long wait
-- Pre-pulling provides clear progress indication
-- Avoids confusion when first using the agent
+**为什么预拉取？**
+- sandbox 镜像（~500MB+）在首次使用时拉取，会导致长时间等待
+- 预拉取提供清晰的进度指示
+- 避免首次使用 agent 时产生困惑
 
-If you skip this step, the image will be automatically pulled on first agent execution, which may take several minutes depending on your network speed.
+如果你跳过此步骤，镜像将在首次 agent 执行时自动拉取，这可能需要几分钟（取决于网络速度）。
 
-## Troubleshooting
+## 故障排查
 
-### Config file not found
+### 配置文件未找到
 
 ```bash
-# Check where the backend is looking
+# 检查后端查找的位置
 cd deer-flow/backend
 python -c "from deerflow.config.app_config import AppConfig; print(AppConfig.resolve_config_path())"
 ```
 
-If it can't find the config:
-1. Ensure you've copied `config.example.yaml` to `config.yaml`
-2. Verify you're in the project root, or set `DEER_FLOW_PROJECT_ROOT`
-3. Check the file exists: `ls -la config.yaml`
+如果找不到配置：
+1. 确保已将 `config.example.yaml` 复制到 `config.yaml`
+2. 验证你在项目根目录，或设置 `DEER_FLOW_PROJECT_ROOT`
+3. 检查文件是否存在：`ls -la config.yaml`
 
-### Permission denied
+### 权限被拒绝
 
 ```bash
-chmod 600 ../config.yaml  # Protect sensitive configuration
+chmod 600 ../config.yaml  # 保护敏感配置
 ```
 
-## See Also
+## 另见
 
-- [Configuration Guide](CONFIGURATION.md) - Detailed configuration options
-- [Architecture Overview](../CLAUDE.md) - System architecture
+- [配置指南](CONFIGURATION.md) - 详细配置选项
+- [架构概述](../CLAUDE.md) - 系统架构

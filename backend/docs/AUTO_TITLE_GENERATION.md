@@ -14,7 +14,7 @@
 
 TitleMiddleware 会先把 LangChain message content 里的结构化 block/list 内容归一化为纯文本，再拼到 title prompt 里，避免把 Python/JSON 的原始 repr 泄漏到标题生成模型。
 
-## ⚠️ 重要：存储机制
+## 重要：存储机制
 
 ### Title 存储位置
 
@@ -111,7 +111,7 @@ function ConversationList() {
   useEffect(() => {
     async function loadThreads() {
       const allThreads = await client.threads.list();
-      
+
       // 获取每个 thread 的 state 来读取 title
       const threadsWithTitles = await Promise.all(
         allThreads.map(async (t) => {
@@ -123,7 +123,7 @@ function ConversationList() {
           };
         })
       );
-      
+
       setThreads(threadsWithTitles);
     }
     loadThreads();
@@ -168,12 +168,12 @@ sequenceDiagram
 
 ## 优势
 
-✅ **可靠持久化** - 使用 LangGraph 的 state 机制，自动持久化  
-✅ **完全后端处理** - 客户端无需额外逻辑  
-✅ **自动触发** - 首次对话后自动生成  
-✅ **可配置** - 支持自定义长度、模型等  
-✅ **容错性强** - 失败时使用 fallback 策略  
-✅ **架构一致** - 与现有 SandboxMiddleware 保持一致  
+✅ **可靠持久化** - 使用 LangGraph 的 state 机制，自动持久化
+✅ **完全后端处理** - 客户端无需额外逻辑
+✅ **自动触发** - 首次对话后自动生成
+✅ **可配置** - 支持自定义长度、模型等
+✅ **容错性强** - 失败时使用 fallback 策略
+✅ **架构一致** - 与现有 SandboxMiddleware 保持一致
 
 ## 注意事项
 
@@ -236,10 +236,10 @@ def after_agent(self, state: TitleMiddlewareState, runtime: Runtime) -> dict | N
     if self._should_generate_title(state, runtime):
         title = self._generate_title(runtime)
         print(f"Generated thread title: {title}")
-        
+
         # ✅ 返回 state 更新，会被 checkpointer 自动持久化
         return {"title": title}
-    
+
     return None
 ```
 

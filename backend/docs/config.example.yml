@@ -1,0 +1,1083 @@
+# DeerFlow 应用配置
+#
+# 使用指南：
+# - 将此文件复制到 `config.yaml` 并根据你的环境进行自定义
+# - 默认路径是项目根目录下的 `config.yaml`。
+#   你可以设置 `DEER_FLOW_PROJECT_ROOT` 来明确定义根目录，
+#   或使用 `DEER_FLOW_CONFIG_PATH` 指向特定配置文件。
+# - 运行时状态默认为项目根目录下的 `.deer-flow`。
+#   当需要不同的可写数据目录时，用 `DEER_FLOW_HOME` 覆盖。
+# - 所有字段值都支持环境变量。例如：`api_key: $OPENAI_API_KEY`
+# - `use` 路径格式为 "package_name.sub_package_name.module_name:class_name/variable_name"。
+
+# ============================================================================
+# 配置版本（用于检测过时的配置文件）
+# ============================================================================
+# 当配置 schema 变更时，递增此数字。
+# 运行 `make config-upgrade` 将新字段合并到本地 config.yaml。
+config_version: 9
+
+# ============================================================================
+# 日志级别
+# ============================================================================
+# deerflow 模块的日志级别（debug/info/warning/error）
+log_level: info
+
+# ============================================================================
+# Token 使用量统计
+# ============================================================================
+# 启用 token 使用量收集和显示。
+# 启用后，DeerFlow 记录每次模型调用的输入/输出/总 tokens，
+# 并在 providers 返回时在 workspace UI 中显示使用量元数据。
+token_usage:
+  enabled: true
+
+# ============================================================================
+# 模型配置
+# ============================================================================
+# 配置 agent 可用的 LLM models
+
+models:
+  # 示例：火山引擎（豆包）模型
+  # - name: doubao-seed-1.8
+  #   display_name: Doubao-Seed-1.8
+  #   use: deerflow.models.patched_deepseek:PatchedChatDeepSeek
+  #   model: doubao-seed-1-8-251228
+  #   api_base: https://ark.cn-beijing.volces.com/api/v3
+  #   api_key: $VOLCENGINE_API_KEY
+  #   timeout: 600.0
+  #   max_retries: 2
+  #   supports_thinking: true
+  #   supports_vision: true
+  #   supports_reasoning_effort: true
+  #   when_thinking_enabled:
+  #     extra_body:
+  #       thinking:
+  #         type: enabled
+  #   when_thinking_disabled:
+  #     extra_body:
+  #       thinking:
+  #         type: disabled
+
+  # 示例：OpenAI 模型
+  # - name: gpt-4
+  #   display_name: GPT-4
+  #   use: langchain_openai:ChatOpenAI
+  #   model: gpt-4
+  #   api_key: $OPENAI_API_KEY # 使用环境变量
+  #   request_timeout: 600.0
+  #   max_retries: 2
+  #   max_tokens: 4096
+  #   temperature: 0.7
+  #   supports_vision: true # 为 view_image 工具启用 vision 支持
+
+  # 示例：OpenAI Responses API 模型
+  # - name: gpt-5-responses
+  #   display_name: GPT-5 (Responses API)
+  #   use: langchain_openai:ChatOpenAI
+  #   model: gpt-5
+  #   api_key: $OPENAI_API_KEY
+  #   request_timeout: 600.0
+  #   max_retries: 2
+  #   use_responses_api: true
+  #   output_version: responses/v1
+  #   supports_vision: true
+
+  # 示例：Ollama（原生 provider — 保留 thinking/reasoning 内容）
+  #
+  # 重要：对于 Ollama 模型，使用 langchain_ollama:ChatOllama 而不是
+  # langchain_openai:ChatOpenAI。OpenAI 兼容端点（/v1/chat/completions）
+  # 不会将 reasoning_content 作为单独字段返回 — thinking 内容要么被扁平化
+  # 到 <think> 标签中，要么完全丢弃（ollama/ollama#15293）。
+  # 原生 Ollama API（/api/chat）正确地将 thinking 与响应内容分开。
+  #
+  # 安装：cd backend && uv pip install 'deerflow-harness[ollama]'
+  #
+  # - name: qwen3-local
+  #   display_name: Qwen3 32B (Ollama)
+  #   use: langchain_ollama:ChatOllama
+  #   model: qwen3:32b
+  #   base_url: http://localhost:11434   # 不带 /v1 后缀 — 使用原生 /api/chat
+  #   num_predict: 8192
+  #   temperature: 0.7
+  #   reasoning: true                    # 传递 think:true 到 Ollama 原生 API
+  #   supports_thinking: true
+  #   supports_vision: false
+  #
+  # - name: gemma4-local
+  #   display_name: Gemma 4 27B (Ollama)
+  #   use: langchain_ollama:ChatOllama
+  #   model: gemma4:27b
+  #   base_url: http://localhost:11434
+  #   num_predict: 8192
+  #   temperature: 0.7
+  #   reasoning: true
+  #   supports_thinking: true
+  #   supports_vision: true
+  #
+  # Docker 部署时，使用 host.docker.internal 而不是 localhost：
+  #   base_url: http://host.docker.internal:11434
+
+  # 示例：Anthropic Claude 模型（带扩展思考）
+  # 需要 supports_thinking: true — 没有它，DeerFlow 即使在 UI thinking 切换打开时
+  # 也会静默回退到非 thinking 模式。
+  # budget_tokens 是 Anthropic API 启用 thinking.type=enabled 时必需的
+  # （无 server 默认；最小 1024；必须小于 max_tokens）。
+  # - name: claude-sonnet-4
+  #   display_name: Claude Sonnet 4
+  #   use: langchain_anthropic:ChatAnthropic
+  #   model: claude-sonnet-4-20250514
+  #   api_key: $ANTHROPIC_API_KEY
+  #   default_request_timeout: 600.0
+  #   max_retries: 2
+  #   max_tokens: 16000
+  #   supports_vision: true
+  #   supports_thinking: true
+  #   when_thinking_enabled:
+  #     thinking:
+  #       type: enabled
+  #       budget_tokens: 4096   # 必需；最小 1024；必须 < max_tokens
+  #   when_thinking_disabled:
+  #     thinking:
+  #       type: disabled
+
+  # 示例：Google Gemini 模型（原生 SDK，无 thinking 支持）
+  # - name: gemini-2.5-pro
+  #   display_name: Gemini 2.5 Pro
+  #   use: langchain_google_genai:ChatGoogleGenerativeAI
+  #   model: gemini-2.5-pro
+  #   gemini_api_key: $GEMINI_API_KEY
+  #   timeout: 600.0
+  #   max_retries: 2
+  #   max_tokens: 8192
+  #   supports_vision: true
+
+  # 示例：通过 OpenAI 兼容网关的 Gemini 模型（带 thinking 支持）
+  # 使用 PatchedChatOpenAI 以便在多轮 tool-call 对话中保留 tool_calls 上的
+  # tool-call thought_signature 值 — 启用 thinking 时 Gemini API 需要此配置。
+  # 见：https://docs.cloud.google.com/vertex-ai/generative-ai/docs/thought-signatures
+  # - name: gemini-2.5-pro-thinking
+  #   display_name: Gemini 2.5 Pro (Thinking)
+  #   use: deerflow.models.patched_openai:PatchedChatOpenAI
+  #   model: google/gemini-2.5-pro-preview   # 你的网关期望的模型名称
+  #   api_key: $GEMINI_API_KEY
+  #   base_url: https://<your-openai-compat-gateway>/v1
+  #   request_timeout: 600.0
+  #   max_retries: 2
+  #   max_tokens: 16384
+  #   supports_thinking: true
+  #   supports_vision: true
+  #   when_thinking_enabled:
+  #     extra_body:
+  #       thinking:
+  #         type: enabled
+  #   when_thinking_disabled:
+  #     extra_body:
+  #       thinking:
+  #         type: disabled
+
+  # 示例：DeepSeek 模型（带 thinking 支持）
+  # - name: deepseek-v3
+  #   display_name: DeepSeek V3 (Thinking)
+  #   use: deerflow.models.patched_deepseek:PatchedChatDeepSeek
+  #   model: deepseek-reasoner
+  #   api_key: $DEEPSEEK_API_KEY
+  #   timeout: 600.0
+  #   max_retries: 2
+  #   max_tokens: 8192
+  #   supports_thinking: true
+  #   supports_vision: false  # DeepSeek V3 不支持 vision
+  #   when_thinking_enabled:
+  #     extra_body:
+  #       thinking:
+  #         type: enabled
+  #   when_thinking_disabled:
+  #     extra_body:
+  #       thinking:
+  #         type: disabled
+
+  # 示例：Kimi K2.5 模型
+  # - name: kimi-k2.5
+  #   display_name: Kimi K2.5
+  #   use: deerflow.models.patched_deepseek:PatchedChatDeepSeek
+  #   model: kimi-k2.5
+  #   api_base: https://api.moonshot.cn/v1
+  #   api_key: $MOONSHOT_API_KEY
+  #   timeout: 600.0
+  #   max_retries: 2
+  #   max_tokens: 32768
+  #   supports_thinking: true
+  #   supports_vision: true  # 检查你特定模型的能力
+  #   when_thinking_enabled:
+  #     extra_body:
+  #       thinking:
+  #         type: enabled
+  #   when_thinking_disabled:
+  #     extra_body:
+  #       thinking:
+  #         type: disabled
+
+  # 示例：Novita AI（OpenAI 兼容）
+  # Novita 提供具有竞争性定价的 OpenAI 兼容 API
+  # 见：https://novita.ai
+  # - name: novita-deepseek-v3.2
+  #   display_name: Novita DeepSeek V3.2
+  #   use: langchain_openai:ChatOpenAI
+  #   model: deepseek/deepseek-v3.2
+  #   api_key: $NOVITA_API_KEY
+  #   base_url: https://api.novita.ai/openai
+  #   request_timeout: 600.0
+  #   max_retries: 2
+  #   max_tokens: 4096
+  #   temperature: 0.7
+  #   supports_thinking: true
+  #   supports_vision: true
+  #   when_thinking_enabled:
+  #     extra_body:
+  #       thinking:
+  #         type: enabled
+  #   when_thinking_disabled:
+  #     extra_body:
+  #       thinking:
+  #         type: disabled
+
+  # 示例：MiniMax（OpenAI 兼容）— 国际版
+  # MiniMax 提供高性能模型，204K 上下文窗口
+  # 文档：https://platform.minimax.io/docs/api-reference/text-openai-api
+  # - name: minimax-m2.5
+  #   display_name: MiniMax M2.5
+  #   use: langchain_openai:ChatOpenAI
+  #   model: MiniMax-M2.5
+  #   api_key: $MINIMAX_API_KEY
+  #   base_url: https://api.minimax.io/v1
+  #   request_timeout: 600.0
+  #   max_retries: 2
+  #   max_tokens: 4096
+  #   temperature: 1.0  # MiniMax 要求 temperature 在 (0.0, 1.0]
+  #   supports_vision: true
+  #   supports_thinking: true
+
+  # - name: minimax-m2.5-highspeed
+  #   display_name: MiniMax M2.5 Highspeed
+  #   use: langchain_openai:ChatOpenAI
+  #   model: MiniMax-M2.5-highspeed
+  #   api_key: $MINIMAX_API_KEY
+  #   base_url: https://api.minimax.io/v1
+  #   request_timeout: 600.0
+  #   max_retries: 2
+  #   max_tokens: 4096
+  #   temperature: 1.0  # MiniMax 要求 temperature 在 (0.0, 1.0]
+  #   supports_vision: true
+  #   supports_thinking: true
+
+  # 示例：MiniMax（OpenAI 兼容）— 中国区用户
+  # MiniMax 提供高性能模型，204K 上下文窗口
+  # 文档：https://platform.minimaxi.com/docs/api-reference/text-openai-api
+  # - name: minimax-m2.7
+  #   display_name: MiniMax M2.7
+  #   use: langchain_openai:ChatOpenAI
+  #   model: MiniMax-M2.7
+  #   api_key: $MINIMAX_API_KEY
+  #   base_url: https://api.minimaxi.com/v1
+  #   request_timeout: 600.0
+  #   max_retries: 2
+  #   max_tokens: 4096
+  #   temperature: 1.0  # MiniMax 要求 temperature 在 (0.0, 1.0]
+  #   supports_vision: true
+  #   supports_thinking: true
+
+  # - name: minimax-m2.7-highspeed
+  #   display_name: MiniMax M2.7 Highspeed
+  #   use: langchain_openai:ChatOpenAI
+  #   model: MiniMax-M2.7-highspeed
+  #   api_key: $MINIMAX_API_KEY
+  #   base_url: https://api.minimaxi.com/v1
+  #   request_timeout: 600.0
+  #   max_retries: 2
+  #   max_tokens: 4096
+  #   temperature: 1.0  # MiniMax 要求 temperature 在 (0.0, 1.0]
+  #   supports_vision: true
+  #   supports_thinking: true
+
+  # 示例：OpenRouter（OpenAI 兼容）
+  # OpenRouter 模型使用与其他 OpenAI 兼容网关相同的 ChatOpenAI + base_url 模式。
+  # - name: openrouter-gemini-2.5-flash
+  #   display_name: Gemini 2.5 Flash (OpenRouter)
+  #   use: langchain_openai:ChatOpenAI
+  #   model: google/gemini-2.5-flash-preview
+  #   api_key: $OPENAI_API_KEY
+  #   base_url: https://openrouter.ai/api/v1
+  #   request_timeout: 600.0
+  #   max_retries: 2
+  #   max_tokens: 8192
+  #   temperature: 0.7
+
+  # 示例：vLLM 0.19.0（OpenAI 兼容，带 reasoning 切换）
+  # DeerFlow 的 vLLM provider 在 tool-call 轮次中保留 vLLM reasoning，
+  # 并通过写入 extra_body.chat_template_kwargs.enable_thinking=true/false
+  # 来切换 Qwen 风格的 reasoning。
+  # 某些 reasoning 模型还需要用
+  # `vllm serve ... --reasoning-parser <parser>` 启动 server。
+  # - name: qwen3-32b-vllm
+  #   display_name: Qwen3 32B (vLLM)
+  #   use: deerflow.models.vllm_provider:VllmChatModel
+  #   model: Qwen/Qwen3-32B
+  #   api_key: $VLLM_API_KEY
+  #   base_url: http://localhost:8000/v1
+  #   request_timeout: 600.0
+  #   max_retries: 2
+  #   max_tokens: 8192
+  #   supports_thinking: true
+  #   supports_vision: false
+  #   when_thinking_enabled:
+  #     extra_body:
+  #       chat_template_kwargs:
+  #         enable_thinking: true
+
+  # 示例：在 MindIE Engine 上部署的 Qwen3-Coder
+  # - name: Qwen3_Coder_480B_MindIE
+  #   display_name: Qwen3-Coder-480B (MindIE)
+  #   use: deerflow.models.mindie_provider:MindIEChatModel
+  #   model: Qwen3-Coder-480B-A35B-Instruct-Client
+  #   base_url: http://localhost:8989/v1
+  #   api_key: $OPENAI_API_KEY
+  #   temperature: 0
+  #   max_retries: 1
+  #   supports_thinking: false
+  #   supports_vision: false
+  #   supports_reasoning_effort: false
+  #   # --- 高级网络设置 ---
+  #   # 由于 MindIE 的 tool calling 流式限制，provider 使用 mock-streaming（等待完整生成）。
+  #   # 需要延长超时以防止长文档生成期间中断。
+  #   read_timeout: 900.0     # 15 分钟，防止长文档生成期间掉线
+  #   connect_timeout: 30.0
+  #   write_timeout: 60.0
+  #   pool_timeout: 30.0
+
+# ============================================================================
+# 工具组配置
+# ============================================================================
+# 定义工具组用于组织管理和访问控制
+
+tool_groups:
+  - name: web
+  - name: file:read
+  - name: file:write
+  - name: bash
+
+# ============================================================================
+# 工具配置
+# ============================================================================
+# 配置 agent 可用的工具
+
+tools:
+  # 网络搜索工具（使用 DuckDuckGo，无需 API key）
+  - name: web_search
+    group: web
+    use: deerflow.community.ddg_search.tools:web_search_tool
+    max_results: 5
+
+  # 网络搜索工具（使用 Serper - Google Search API，需要 SERPER_API_KEY）
+  # Serper 提供实时 Google 搜索结果。在 https://serper.dev 注册
+  # 注意：在启动应用前设置 SERPER_API_KEY 环境变量，
+  # 或取消注释并填写下方的 api_key（$VAR 语法在启动时解析）。
+  # - name: web_search
+  #   group: web
+  #   use: deerflow.community.serper.tools:web_search_tool
+  #   max_results: 5
+  #   # api_key: $SERPER_API_KEY  # 如果设置了 SERPER_API_KEY 环境变量则可选
+
+  # 网络搜索工具（需要 Tavily API key）
+  # - name: web_search
+  #   group: web
+  #   use: deerflow.community.tavily.tools:web_search_tool
+  #   max_results: 5
+  #   # api_key: $TAVILY_API_KEY  # 需要时设置
+
+  # 网络搜索工具（使用 InfoQuest，需要 InfoQuest API key）
+  # - name: web_search
+  #   group: web
+  #   use: deerflow.community.infoquest.tools:web_search_tool
+  #   # 用于限制搜索结果范围，只返回指定时间范围内的内容。设置为 -1 禁用时间过滤
+  #   search_time_range: 10
+
+  # 网络搜索工具（使用 Exa，需要 EXA_API_KEY）
+  # - name: web_search
+  #   group: web
+  #   use: deerflow.community.exa.tools:web_search_tool
+  #   max_results: 5
+  #   search_type: auto  # 选项：auto, neural, keyword
+  #   contents_max_characters: 1000
+  #   # api_key: $EXA_API_KEY
+
+  # 网络搜索工具（使用 Firecrawl，需要 FIRECRAWL_API_KEY）
+  # - name: web_search
+  #   group: web
+  #   use: deerflow.community.firecrawl.tools:web_search_tool
+  #   max_results: 5
+  #   # api_key: $FIRECRAWL_API_KEY
+
+  # 网页抓取工具（使用 Exa）
+  # 注意：一次只能有一个 web_fetch provider 处于活动状态。
+  # 启用此选项前请注释掉下方的 Jina AI web_fetch 条目。
+  # - name: web_fetch
+  #   group: web
+  #   use: deerflow.community.exa.tools:web_fetch_tool
+  #   # api_key: $EXA_API_KEY
+
+  # 网页抓取工具（使用 Jina AI reader）
+  - name: web_fetch
+    group: web
+    use: deerflow.community.jina_ai.tools:web_fetch_tool
+    timeout: 10
+
+  # 网页抓取工具（使用 InfoQuest）
+  # - name: web_fetch
+  #   group: web
+  #   use: deerflow.community.infoquest.tools:web_fetch_tool
+  #   # 整个爬取过程的总体超时（秒）。设置为正值启用，-1 禁用
+  #   timeout: 10
+  #   # 页面加载后的等待时间（秒）。设置为正值启用，-1 禁用
+  #   fetch_time: 10
+  #   # 导航到页面的超时（秒）。设置为正值启用，-1 禁用
+  #   navigation_timeout: 30
+
+  # 网页抓取工具（使用 Firecrawl，需要 FIRECRAWL_API_KEY）
+  # - name: web_fetch
+  #   group: web
+  #   use: deerflow.community.firecrawl.tools:web_fetch_tool
+  #   # api_key: $FIRECRAWL_API_KEY
+
+  # 图片搜索工具（使用 DuckDuckGo）
+  # 在图片生成前使用此工具查找参考图片
+  - name: image_search
+    group: web
+    use: deerflow.community.image_search.tools:image_search_tool
+    max_results: 5
+
+  # 图片搜索工具（使用 InfoQuest）
+  # - name: image_search
+  #   group: web
+  #   use: deerflow.community.infoquest.tools:image_search_tool
+  #   # 用于限制图片搜索结果范围，只返回指定时间范围内的内容。设置为 -1 禁用时间过滤
+  #   image_search_time_range: 10
+  #   # 图片大小过滤器。选项："l"（大），"m"（中），"i"（图标）。
+  #   image_size: "i"
+
+  # 文件操作工具
+  - name: ls
+    group: file:read
+    use: deerflow.sandbox.tools:ls_tool
+
+  - name: read_file
+    group: file:read
+    use: deerflow.sandbox.tools:read_file_tool
+
+  - name: glob
+    group: file:read
+    use: deerflow.sandbox.tools:glob_tool
+    max_results: 200
+
+  - name: grep
+    group: file:read
+    use: deerflow.sandbox.tools:grep_tool
+    max_results: 100
+
+  - name: write_file
+    group: file:write
+    use: deerflow.sandbox.tools:write_file_tool
+
+  - name: str_replace
+    group: file:write
+    use: deerflow.sandbox.tools:str_replace_tool
+
+  # Bash 执行工具
+  # 仅在使用隔离 shell sandbox 或 sandbox.allow_host_bash: true 明确启用 host bash 时活动。
+  - name: bash
+    group: bash
+    use: deerflow.sandbox.tools:bash_tool
+
+# ============================================================================
+# 工具搜索配置（延迟工具加载）
+# ============================================================================
+# 启用后，MCP tools 不直接加载到 agent 的上下文中。
+# 相反，它们按名称列在 system prompt 中，可在运行时通过 tool_search 工具发现。
+# 这减少了上下文使用，并在多个 MCP servers 暴露大量工具时提高工具选择准确性。
+
+tool_search:
+  enabled: false
+
+# ============================================================================
+# 循环检测配置
+# ============================================================================
+# 检测并中断重复的相同 tool-call 循环。
+# 频率阈值是同一工具类型重复使用的安全限制。
+
+loop_detection:
+  enabled: true
+  warn_threshold: 3          # 警告阈值（同一工具连续调用次数）
+  hard_limit: 5             # 硬限制（超过此数直接停止）
+  window_size: 20           # 滑动窗口大小
+  max_tracked_threads: 100  # 最大跟踪线程数
+  tool_freq_warn: 30         # 工具频率警告阈值
+  tool_freq_hard_limit: 50   # 工具频率硬限制
+  # Per-tool 覆盖用于 tool_freq_warn / tool_freq_hard_limit。
+  # 值可以高于或低于全局默认值。常用于为高频工具（如 bash）提高阈值，
+  # 同时不削弱对其他工具的保护。
+  # tool_freq_overrides:
+  #   bash:
+  #     warn: 150
+  #     hard_limit: 300
+
+# ============================================================================
+# Sandbox 配置
+# ============================================================================
+# 选择本地 sandbox（直接执行）或基于 Docker 的 AIO sandbox
+
+# 选项 1：本地 Sandbox（默认）
+# 直接在主机上执行命令
+uploads:
+  # 网关强制的应用级上传限制，并在文件选择前暴露给前端
+  max_files: 10                    # 最大文件数
+  max_file_size: 52428800          # 单文件最大 50 MiB
+  max_total_size: 104857600        # 单次请求总计最大 100 MiB
+  # 自动 Office/PDF 转换在 backend 主机上运行，在 sandbox 隔离之前。
+  # 除非上传来自完全受信任的来源且你有意接受 host 端解析器风险，
+  # 否则保持禁用。
+  auto_convert_documents: false
+  # 控制每当 PDF 转换运行时使用的 PDF 到 Markdown 转换器。
+  # 自动上传转换由 auto_convert_documents 单独控制。
+  # auto        — 优先使用 pymupdf4llm（如果已安装）；对于基于图片或加密的 PDF
+  #               回退到 MarkItDown（推荐的默认设置）。
+  # pymupdf4llm — 始终使用 pymupdf4llm（必须安装：uv add pymupdf4llm）。
+  #               更好的标题/表格提取；大多数文件上更快。
+  # markitdown  — 始终使用 MarkItDown（原始行为，无额外依赖）。
+  pdf_converter: auto
+
+sandbox:
+  use: deerflow.sandbox.local:LocalSandboxProvider
+  # 默认禁用 host bash 执行，因为 LocalSandboxProvider 不是 shell 访问的安全隔离边界。
+  # 仅在为完全受信任的单用户本地工作流启用。
+  allow_host_bash: false
+  # 可选：将额外主机目录挂载到 sandbox 中。
+  # 每个挂载将主机路径映射到 agent 可访问的虚拟容器路径。
+  # mounts:
+  #   - host_path: /home/user/my-project    # 主机上的绝对路径
+  #     container_path: /mnt/my-project     # sandbox 内的虚拟路径
+  #     read_only: true                     # 是否只读（默认：false）
+
+  # 工具输出截断限制（字符数）。
+  # bash 使用中间截断（head + tail），因为错误可能出现在输出中的任何位置。
+  # read_file 和 ls 使用 head 截断，因为它们的内容是前置的。
+  # 设置为 0 禁用截断。
+  bash_output_max_chars: 20000
+  read_file_output_max_chars: 50000
+  ls_output_max_chars: 20000
+
+# 选项 2：基于容器的 AIO Sandbox
+# 在隔离容器中执行命令（Docker 或 Apple Container）
+# 在 macOS 上：自动优先使用 Apple Container（如果可用），回退到 Docker
+# 在其他平台上：使用 Docker
+# 取消注释以使用：
+# sandbox:
+#   use: deerflow.community.aio_sandbox:AioSandboxProvider
+#
+#   # 可选：使用的容器镜像（适用于 Docker 和 Apple Container）
+#   # 默认：enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:latest
+#   # 推荐：enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:latest（适用于 x86_64 和 arm64）
+#   # image: enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:latest
+#
+#   # 可选：sandbox 容器的基准端口（默认：8080）
+#   # port: 8080
+
+#   # 可选：最大并发 sandbox 容器数（默认：3）
+#   # 达到限制时，最近最少使用的 sandbox 被驱逐以腾出空间。
+#   # 使用正整数；省略此字段则使用默认值。
+#   # replicas: 3
+#
+#   # 可选：容器名称前缀（默认：deer-flow-sandbox）
+#   # container_prefix: deer-flow-sandbox
+#
+#   # 可选：从 host 到容器的额外挂载目录
+#   # 注意：Skills 目录从 skills.path 自动挂载到 skills.container_path
+#   # mounts:
+#   #   # 其他自定义挂载
+#   #   - host_path: /path/on/host
+#   #     container_path: /home/user/shared
+#   #     read_only: false
+#   #
+#   #   # DeerFlow 会将配置的 container_path 值暴露给 agent，
+#   #   # 所以它可以直接读取/写入挂载的目录，如 /home/user/shared
+#
+#   # 可选：注入到 sandbox 容器的环境变量
+#   # 以 $ 开头的值将从 host 环境变量解析
+#   # environment:
+#   #   NODE_ENV: production
+#   #   DEBUG: "false"
+#   #   API_KEY: $MY_API_KEY        # 从主机的 MY_API_KEY 环境变量读取
+#   #   DATABASE_URL: $DATABASE_URL  # 从主机的 DATABASE_URL 环境变量读取
+
+# 选项 3：Provisioner 管理的 AIO Sandbox（docker-compose-dev）
+# 每个 sandbox_id 在 k3s 中获得专用 Pod，由 provisioner 管理。
+# 推荐用于生产或需要更好隔离和可扩展性的高级用户：
+# sandbox:
+#   use: deerflow.community.aio_sandbox:AioSandboxProvider
+#   provisioner_url: http://provisioner:8002
+
+# ============================================================================
+# Subagents 配置
+# ============================================================================
+# 配置 subagent 执行的超时时间
+# Subagents 是由 lead agent 委托任务的后台 workers
+
+# subagents:
+#   # 所有 subagents 的默认超时（秒）（默认：900 = 15 分钟）
+#   timeout_seconds: 900
+#   # 可选的全局 max-turn 覆盖应用于所有 subagents
+#   # max_turns: 120
+#
+#   # 可选的 per-agent 覆盖（适用于内置和自定义 agents）
+#   agents:
+#     general-purpose:
+#       timeout_seconds: 1800  # 复杂多步任务 30 分钟
+#       max_turns: 160
+#       # model: qwen3:32b     # 使用特定模型（默认：继承自 lead agent）
+#       # skills:               # Skill 白名单（默认：继承所有已启用 skills）
+#       #   - web-search
+#       #   - data-analysis
+#     bash:
+#       timeout_seconds: 300   # 快速命令执行 5 分钟
+#       max_turns: 80
+#       # skills: []            # bash agent 无 skills
+#
+#   # 自定义 subagent 类型：使用自己的 prompts、tools、skills 和模型配置定义专门化 agents。
+#   # 自定义 agents 可通过 `task` 工具与内置类型（general-purpose、bash）一起使用。
+#   # custom_agents:
+#   #   analysis:
+#   #     description: "用于处理数据集和生成洞察的数据分析专家"
+#   #     system_prompt: |
+#   #       You are a data analysis subagent. Focus on:
+#   #       - Processing and analyzing datasets
+#   #       - Generating visualizations
+#   #       - Providing statistical insights
+#   #     tools:                  # 工具白名单（null = 继承所有）
+#   #       - bash
+#   #       - read_file
+#   #       - write_file
+#   #     skills:                 # Skill 白名单（null = 继承所有，[] = 无）
+#   #       - data-analysis
+#   #       - visualization
+#   #     model: inherit          # 'inherit' 使用父级的模型
+#   #     max_turns: 80
+#   #     timeout_seconds: 600
+#
+#   # 模型覆盖：默认情况下，subagents 继承 lead agent 的模型。
+#   # 设置 `model` 使用不同模型（例如，用于成本节省的本地 Ollama 模型）。
+#   # 模型名称必须与上面 `models:` 部分中定义的名称匹配。
+
+# ============================================================================
+# ACP Agents 配置
+# ============================================================================
+# 配置外部 ACP 兼容 agents 用于内置的 `invoke_acp_agent` 工具。
+
+# acp_agents:
+#   claude_code:
+#     # DeerFlow 在此需要一个 ACP adapter。标准的 `claude` CLI 不直接支持 ACP。
+#     # 单独安装 `claude-agent-acp` 或使用：
+#     command: npx
+#     args: ["-y", "@zed-industries/claude-agent-acp"]
+#     description: Claude Code 用于实现、重构和调试
+#     model: null
+#     # auto_approve_permissions: false  # 设置为 true 自动批准 ACP 权限请求
+#     # env:                             # 可选：注入环境变量到 agent 子进程
+#     #   ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY  # $VAR 从 host 环境解析
+
+#   codex:
+#     # DeerFlow 在此需要一个 ACP adapter。标准的 `codex` CLI 不直接支持 ACP。
+#     # 单独安装 `codex-acp` 或使用：
+#     command: npx
+#     args: ["-y", "@zed-industries/codex-acp"]
+#     description: Codex CLI 用于仓库任务和代码生成
+#     model: null
+#     # auto_approve_permissions: false  # 设置为 true 自动批准 ACP 权限请求
+#     # env:                             # 可选：注入环境变量到 agent 子进程
+#     #   OPENAI_API_KEY: $OPENAI_API_KEY  # $VAR 从 host 环境解析
+
+# ============================================================================
+# Skills 配置
+# ============================================================================
+# 配置 specialized agent workflows 的 skills 目录
+
+skills:
+  # 主机上 skills 目录的路径（相对于项目根目录或绝对路径）
+  # 默认：项目根目录下的 skills
+  # 省略此字段时用 DEER_FLOW_SKILLS_PATH 覆盖。
+  # 取消注释以自定义：
+  # path: /absolute/path/to/custom/skills
+
+  # skills 在 sandbox 容器中挂载的路径
+  # agent 在本地和 Docker sandbox 中都使用此路径访问 skills
+  # 默认：/mnt/skills
+  container_path: /mnt/skills
+
+# 注意：若要限制特定自定义 agent 加载哪些 skills，
+# 在该 agent 的 `config.yaml`（如 `agents/my-agent/config.yaml`）中定义 `skills` 列表：
+# - 省略或 null：加载所有全局已启用 skills（默认）
+# - []：禁用此 agent 的所有 skills
+# - ["skill-name"]：仅加载特定 skills
+
+# ============================================================================
+# 标题生成配置
+# ============================================================================
+# 自动对话标题生成设置
+
+title:
+  enabled: true
+  max_words: 6        # 最多单词数
+  max_chars: 60       # 最多字符数
+  model_name: null     # 使用默认模型（models 列表中的第一个模型）
+
+# ============================================================================
+# 摘要配置
+# ============================================================================
+# 当 token 限制接近时自动摘要对话历史
+# 这有助于在长对话中保持上下文而不超过模型限制
+
+summarization:
+  enabled: true
+
+  # 用于摘要的模型（null = 使用默认模型）
+  # 推荐：使用轻量、性价比高的模型如 "gpt-4o-mini" 或同等产品
+  model_name: null
+
+  # 触发条件 — 至少需要一项
+  # 满足任意阈值时运行摘要（OR 逻辑）
+  # 可以指定单个触发器或触发器列表
+  trigger:
+    # 当 token 数达到 15564 时触发
+    - type: tokens
+      value: 15564
+    # 取消注释也可在消息数达到 50 时触发
+    # - type: messages
+    #   value: 50
+    # 取消注释以在达到模型最大输入 tokens 的 80% 时触发
+    # - type: fraction
+    #   value: 0.8
+
+  # 摘要后的上下文保留策略
+  # 指定保留多少最近历史
+  keep:
+    # 保留最近 10 条消息（推荐）
+    type: messages
+    value: 10
+    # 替代方案：保留特定 token 数
+    # type: tokens
+    # value: 3000
+    # 替代方案：保留模型最大输入 tokens 的百分比
+    # type: fraction
+    # value: 0.3
+
+  # 准备消息进行摘要时保留的最大 tokens
+  # 设置为 null 跳过修整（不推荐用于非常长的对话）
+  trim_tokens_to_summarize: 15564
+
+  # 自定义摘要 prompt 模板（null = 使用默认 LangChain prompt）
+  # Prompt 应引导模型提取重要上下文
+  summary_prompt: null
+
+  # 最近加载的 skill 文件从摘要中排除，以免 agent 在压缩后丢失 skill 指令。
+  # Claude Code 使用类似策略（保留最近约 5 个 skills，约 25k 总 tokens，
+  # 每个 skill 约 5k 上限）。设置 preserve_recent_skill_count 为 0 禁用。
+  preserve_recent_skill_count: 5
+  preserve_recent_skill_tokens: 25000
+  preserve_recent_skill_tokens_per_skill: 5000
+  skill_file_read_tool_names:
+    - read_file
+    - read
+    - view
+    - cat
+
+# ============================================================================
+# Memory 配置
+# ============================================================================
+# 全局 memory 机制
+# 存储用户上下文和对话历史以获得个性化响应
+
+memory:
+  enabled: true
+  storage_path: memory.json            # 相对于 backend 目录的路径
+  debounce_seconds: 30                 # 处理排队更新前的等待时间
+  model_name: null                     # 使用默认模型
+  max_facts: 100                       # 存储的最大事实数
+  fact_confidence_threshold: 0.7      # 存储事实的最小 confidence
+  injection_enabled: true              # 是否将 memory 注入到 system prompt
+  max_injection_tokens: 2000          # Memory 注入的最大 tokens
+
+# ============================================================================
+# 自定义 Agent 管理 API 配置
+# ============================================================================
+# 控制 HTTP 网关是否暴露自定义 agent SOUL/USER.md 管理。
+# 除非网关在受信任的经过身份验证的 admin 边界后面，否则保持禁用。
+agents_api:
+  enabled: false
+
+# ============================================================================
+# Skill 自我进化配置
+# ============================================================================
+# 允许 agent 在 skills/custom/ 中自主创建和改进 skills。
+skill_evolution:
+  enabled: false                       # 设置为 true 允许 agent 在 skills/custom 下管理写入
+  moderation_model_name: null          # 用于基于 LLM 的安全扫描的模型（null = 使用默认模型）
+
+# ============================================================================
+# Checkpointer 配置（已弃用 — 请改用 `database`）
+# ============================================================================
+# 遗留独立 checkpointer 配置。为保持向后兼容性而保留。
+# 优先使用下面统一的 `database` 部分，它驱动 BOTH LangGraph checkpointer
+# 和 DeerFlow 应用数据（runs、feedback、events）来自单个后端设置。
+#
+# 如果 `checkpointer` 和 `database` 都存在，`checkpointer`
+# 仅对 LangGraph 状态持久化有优先权。
+#
+# checkpointer:
+#   type: sqlite
+#   connection_string: checkpoints.db
+#
+# checkpointer:
+#   type: postgres
+#   connection_string: postgresql://user:password@localhost:5432/deerflow
+
+# ============================================================================
+# 数据库配置
+# ============================================================================
+# LangGraph checkpointer 和 DeerFlow 应用数据（runs、threads metadata、feedback 等）的统一存储后端。
+#
+# backend: memory  -- 无持久化，重启后数据丢失
+# backend: sqlite  -- 单节点部署，文件在 sqlite_dir
+# backend: postgres -- 生产多节点部署
+#
+# 如果 config.yaml 中省略或空缺此部分，DeerFlow 使用：
+#   backend: sqlite
+#   sqlite_dir: .deer-flow/data
+#
+# SQLite 模式对 checkpointer 和应用数据使用单个 deerflow.db 文件，
+# 使用 WAL journal 模式。
+#
+# Postgres 模式：将连接 URL 放在 .env 中作为 DATABASE_URL，
+# 然后在此处用 $DATABASE_URL 引用。
+#
+# 安装驱动 — Issue #2754 fix 在每个代码路径中放置 `UV_EXTRAS`：
+#   本地      `make dev` 从下面的 `database.backend: postgres` 自动检测
+#              并在每次重启时传递 `--extra postgres` 到 `uv sync`，
+#              所以 extra 不会被清除。若要显式选择加入（或分层 extras 如 `postgres,ollama`），
+#              在项目根 .env 中设置：
+#                  UV_EXTRAS=postgres
+#   Docker dev `make docker-start` 通过 `env_file` 从项目根 .env 读取 `UV_EXTRAS`。
+#              设置：
+#                  UV_EXTRAS=postgres
+#              这里也支持多个 extras（`postgres,ollama`）—— 见
+#              docker/dev-entrypoint.sh。
+#   Docker img build-arg `UV_EXTRAS=postgres docker compose build` — 构建时
+#              只有一个 extra（backend/Dockerfile 将值作为一个 token 传递到 `--extra`）。
+#
+# 首次引导（在 `make dev` 之前）：
+#   cd backend && uv sync --all-packages --extra postgres
+#   （--all-packages 将 extra 传播到 workspace members — 见 PR #2584）
+#
+# 注意：当 `checkpointer` 和 `database` 都配置时，
+# `checkpointer` 对 LangGraph 状态持久化有优先权。
+# 如果你使用 `database`，可以删除 `checkpointer` 部分。
+# database:
+#   backend: sqlite
+#   sqlite_dir: .deer-flow/data
+#
+# database:
+#   backend: postgres
+#   postgres_url: $DATABASE_URL
+database:
+  backend: sqlite
+  sqlite_dir: .deer-flow/data
+
+# ============================================================================
+# 运行事件配置
+# ============================================================================
+# 运行事件（消息 + 执行追踪）的存储后端。
+#
+# backend: memory  -- 无持久化，重启后数据丢失（默认）
+# backend: db      -- 通过 ORM 的 SQL 数据库，完全查询能力（生产）
+# backend: jsonl   -- 追加-only JSONL 文件（轻量单节点持久化）
+#
+# run_events:
+#   backend: memory
+#   max_trace_content: 10240    # 追踪内容的截断阈值（db backend，字节）
+#   track_token_usage: true     # 累积 token 计数到 RunRow
+run_events:
+  backend: memory
+  max_trace_content: 10240
+  track_token_usage: true
+
+# ============================================================================
+# IM Channels 配置
+# ============================================================================
+# 将 DeerFlow 连接到外部消息平台。
+# 所有 channels 使用出站连接（WebSocket 或轮询）— 不需要公网 IP。
+
+# channels:
+#   # 用于线程/消息管理的 LangGraph 兼容 Gateway API 基础 URL（默认：http://localhost:8001/api）
+#   # 对于 Docker 部署，使用 Docker 服务名而不是 localhost：
+#   #   langgraph_url: http://gateway:8001/api
+#   #   gateway_url: http://gateway:8001
+#   langgraph_url: http://localhost:8001/api
+#   # 用于辅助查询（如 /models、/memory）的 Gateway API URL（默认：http://localhost:8001）
+#   gateway_url: http://localhost:8001
+#   #
+#   # Docker Compose 注意：
+#   # 如果 channels 在 gateway 容器内运行，使用容器 DNS 名称而不是 localhost，例如：
+#   # langgraph_url: http://gateway:8001/api
+#   # gateway_url: http://gateway:8001
+#   # 你也可以设置 DEER_FLOW_CHANNELS_LANGGRAPH_URL / DEER_FLOW_CHANNELS_GATEWAY_URL。
+#
+#   # 可选：所有 IM channels 的默认 mobile/session 设置
+#   session:
+#     assistant_id: lead_agent  # 或自定义 agent 名称；自定义 agents 通过 lead_agent + agent_name 路由
+#     config:
+#       recursion_limit: 100
+#     context:
+#       thinking_enabled: true
+#       is_plan_mode: false
+#       subagent_enabled: false
+#
+#   feishu:
+#     enabled: false
+#     app_id: $FEISHU_APP_ID
+#     app_secret: $FEISHU_APP_SECRET
+#     # domain: https://open.feishu.cn       # 中国（默认）
+#     # domain: https://open.larksuite.com   # 国际
+#
+#   slack:
+#     enabled: false
+#     bot_token: $SLACK_BOT_TOKEN     # xoxb-...
+#     app_token: $SLACK_APP_TOKEN     # xapp-... (Socket Mode)
+#     allowed_users: []               # 空 = 允许所有；也可以是单个 Slack 用户 ID 字符串，如 U123456，但推荐列表形式
+#
+#   telegram:
+#     enabled: false
+#     bot_token: $TELEGRAM_BOT_TOKEN
+#     allowed_users: []               # 空 = 允许所有
+#
+#   wechat:
+#     enabled: false
+#     bot_token: $WECHAT_BOT_TOKEN
+#     ilink_bot_id: $WECHAT_ILINK_BOT_ID
+#     # 可选：当 bot_token 缺失时允许首次 QR 引导
+#     qrcode_login_enabled: true
+#     # 可选：提供时作为 iLink-App-Id header 发送
+#     ilink_app_id: ""
+#     # 可选：提供时作为 SKRouteTag header 发送
+#     route_tag: ""
+#     allowed_users: []               # 空 = 允许所有
+#     # 可选：轮询超时秒数
+#     polling_timeout: 35
+#     # 可选：qrcode_login_enabled 为 true 时的 QR 轮询间隔秒数
+#     qrcode_poll_interval: 2
+#     # 可选：QR 引导超时秒数
+#     qrcode_poll_timeout: 180
+#     # 可选：在 gateway 容器卷下持久化 getupdates 光标
+#     state_dir: ./.deer-flow/wechat/state
+#     # 可选：下载前跳过的最大入站图片大小（字节）
+#     max_inbound_image_bytes: 20971520
+#     # 可选：上传前跳过的最大出站图片大小（字节）
+#     max_outbound_image_bytes: 20971520
+#     # 可选：下载前跳过的最大入站文件大小（字节）
+#     max_inbound_file_bytes: 52428800
+#     # 可选：上传前跳过的最大出站文件大小（字节）
+#     max_outbound_file_bytes: 52428800
+#     # 可选：常规文件接收/发送的允许文件扩展名
+#     allowed_file_extensions: [".txt", ".md", ".pdf", ".csv", ".json", ".yaml", ".yml", ".xml", ".html", ".log", ".zip", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".rtf"]
+#
+#     # 可选：channel 级 session 覆盖
+#     session:
+#       assistant_id: mobile-agent  # 这里也支持自定义 agent 名称
+#       context:
+#         thinking_enabled: false
+#
+#       # 可选：按 user_id 的 per-user 覆盖
+#       users:
+#         "123456789":
+#           assistant_id: vip-agent
+#           config:
+#             recursion_limit: 150
+#           context:
+#             thinking_enabled: true
+#             subagent_enabled: true
+#   wecom:
+#     enabled: false
+#     bot_id: $WECOM_BOT_ID
+#     bot_secret: $WECOM_BOT_SECRET
+#
+#   dingtalk:
+#     enabled: false
+#     client_id: $DINGTALK_CLIENT_ID
+#     client_secret: $DINGTALK_CLIENT_SECRET
+#     allowed_users: []               # 空 = 允许所有
+#     card_template_id: ""            # 可选：用于流式更新的 AI Card 模板 ID
+#
+#   discord:
+#     enabled: false
+#     bot_token: $DISCORD_BOT_TOKEN
+#     allowed_guilds: []              # 空 = 允许所有 guilds；也可以是单个 guild ID
+#     mention_only: false             # 如果为 true，仅在 bot 被提及时响应
+#     allowed_channels: []          # 可选：对 mention_only 豁免的 channel IDs（bot 在无需提及时响应）
+#     thread_mode: false              # 如果为 true，将 channel 对话分组到一个 thread 中
+
+# ============================================================================
+# Guardrails 配置
+# ============================================================================
+# Tool calls 的可选预执行授权。
+# 启用后，每个 tool call 在执行前通过配置的 provider。
+# 三种选项：内置 allowlist、OAP 策略 provider 或自定义 provider。
+# 完整文档见 backend/docs/GUARDRAILS.md。
+#
+# Providers 通过 resolve_variable 按类路径加载（与 models/tools 相同）。
+
+# --- 选项 1：内置 AllowlistProvider（零外部依赖）---
+# guardrails:
+#   enabled: true
+#   provider:
+#     use: deerflow.guardrails.builtin:AllowlistProvider
+#     config:
+#       denied_tools: ["bash", "write_file"]
+
+# --- 选项 2：OAP passport provider（开放标准，任何实现）---
+#   Open Agent Passport (OAP) 规范定义 passport 格式和决策码。
+#   任何 OAP 兼容 provider 都可以工作。使用 APort（参考实现）的示例：
+#     pip install aport-agent-guardrails && aport setup --framework deerflow
+# guardrails:
+#   enabled: true
+#   provider:
+#     use: aport_guardrails.providers.generic:OAPGuardrailProvider
+
+# --- 选项 3：自定义 provider（任何具有 evaluate/aevaluate 方法的类）---
+# guardrails:
+#   enabled: true
+#   provider:
+#     use: my_package:MyGuardrailProvider
+#     config:
+#       key: value
+
+# ============================================================================
+# 熔断器配置
+# ============================================================================
+# LLM 调用熔断器防止向故障 provider 重复请求。
+# 当失败阈值达到时，后续调用快速失败直到恢复。
+#
+# 这对于以下情况很有用：
+# - 在 provider 停机期间避免 rate-limit 禁令
+# - 减少重试循环中的资源耗尽
+# - 在 LLM 服务不可用时优雅降级
+
+# circuit_breaker:
+#   # 打开电路前的连续失败次数（默认：5）
+#   failure_threshold: 5
+#   # 尝试恢复前的秒数（默认：60）
+#   recovery_timeout_sec: 60

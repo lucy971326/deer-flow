@@ -1,65 +1,65 @@
 # Memory System Improvements
 
-This document tracks memory injection behavior and roadmap status.
+本文档跟踪 memory 注入行为和路线图状态。
 
-## Status (As Of 2026-03-10)
+## 状态（截至 2026-03-10）
 
-Implemented in `main`:
-- Accurate token counting via `tiktoken` in `format_memory_for_injection`.
-- Facts are injected into prompt memory context.
-- Facts are ranked by confidence (descending).
-- Injection respects `max_injection_tokens` budget.
+已在 `main` 中实现：
+- 通过 `tiktoken` 在 `format_memory_for_injection` 中进行精确 token 计数。
+- Facts 被注入到 prompt memory context。
+- Facts 按 confidence 排序（降序）。
+- 注入尊重 `max_injection_tokens` 预算。
 
-Planned / not yet merged:
-- TF-IDF similarity-based fact retrieval.
-- `current_context` input for context-aware scoring.
-- Configurable similarity/confidence weights (`similarity_weight`, `confidence_weight`).
-- Middleware/runtime wiring for context-aware retrieval before each model call.
+已计划/尚未合并：
+- 基于 TF-IDF 相似性的 fact 检索。
+- 用于上下文感知评分的 `current_context` 输入。
+- 可配置的相似度/ confidence 权重（`similarity_weight`、`confidence_weight`）。
+- 每次模型调用前用于上下文感知检索的 middleware/runtime 连接。
 
-## Current Behavior
+## 当前行为
 
-Function today:
+今天的函数：
 
 ```python
 def format_memory_for_injection(memory_data: dict[str, Any], max_tokens: int = 2000) -> str:
 ```
 
-Current injection format:
-- `User Context` section from `user.*.summary`
-- `History` section from `history.*.summary`
-- `Facts` section from `facts[]`, sorted by confidence, appended until token budget is reached
+当前注入格式：
+- 来自 `user.*.summary` 的 `User Context` 部分
+- 来自 `history.*.summary` 的 `History` 部分
+- 来自 `facts[]` 的 `Facts` 部分，按 confidence 排序，在达到 token 预算前追加
 
-Token counting:
-- Uses `tiktoken` (`cl100k_base`) when available
-- Falls back to `len(text) // 4` if tokenizer import fails
+Token 计数：
+- 可用时使用 `tiktoken`（`cl100k_base`）
+- 如果 tokenizer 导入失败则回退到 `len(text) // 4`
 
-## Known Gap
+## 已知差距
 
-Previous versions of this document described TF-IDF/context-aware retrieval as if it were already shipped.
-That was not accurate for `main` and caused confusion.
+之前版本的本文档将 TF-IDF/上下文感知检索描述为已发货。
+这对于 `main` 不准确并造成了混淆。
 
-Issue reference: `#1059`
+Issue 引用：`#1059`
 
-## Roadmap (Planned)
+## 路线图（已计划）
 
-Planned scoring strategy:
+计划的评分策略：
 
 ```text
 final_score = (similarity * 0.6) + (confidence * 0.4)
 ```
 
-Planned integration shape:
-1. Extract recent conversational context from filtered user/final-assistant turns.
-2. Compute TF-IDF cosine similarity between each fact and current context.
-3. Rank by weighted score and inject under token budget.
-4. Fall back to confidence-only ranking if context is unavailable.
+计划的集成形式：
+1. 从过滤后的 user/final-assistant turns 中提取最近对话上下文。
+2. 计算每个 fact 与当前上下文的 TF-IDF cosine 相似度。
+3. 按加权分数排名并在 token 预算下注入。
+4. 如果上下文不可用则回退到仅 confidence 排名。
 
-## Validation
+## 验证
 
-Current regression coverage includes:
-- facts inclusion in memory injection output
-- confidence ordering
-- token-budget-limited fact inclusion
+当前回归覆盖包括：
+- facts 包含在 memory 注入输出中
+- confidence 排序
+- token-budget-limited fact 包含
 
-Tests:
+测试：
 - `backend/tests/test_memory_prompt_injection.py`

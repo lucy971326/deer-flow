@@ -1,21 +1,20 @@
 """Lead agent factory.
 
-INVARIANT — tracing callback placement
+不变量 — tracing callback 放置位置
 ======================================
 
-Tracing callbacks (Langfuse, LangSmith) are attached at the **graph
-invocation root** in :func:`_make_lead_agent` (see the
-``build_tracing_callbacks()`` block that appends to ``config["callbacks"]``).
-Every ``create_chat_model(...)`` call inside this module — and inside any
-middleware reachable from this graph (e.g. ``TitleMiddleware``) — MUST pass
-``attach_tracing=False``.
+Tracing callbacks (Langfuse, LangSmith) 被附加在 **graph invocation root** 处，
+位于 :func:`_make_lead_agent` 中（参见追加到 ``config["callbacks"]`` 的
+``build_tracing_callbacks()`` 块）。
+此模块内的每个 ``create_chat_model(...)`` 调用 — 以及任何可从该 graph 访问的
+middleware（如 ``TitleMiddleware``）内的调用 — 必须传递 ``attach_tracing=False``。
 
-Forgetting that flag emits duplicate spans (one rooted at the graph, one at
-the model) AND prevents the Langfuse handler's ``propagate_attributes``
-path from firing, so ``session_id`` / ``user_id`` never reach the trace.
-The four current sites are: bootstrap agent, default agent, summarization
-middleware, and the async path inside ``TitleMiddleware``. Any new in-graph
-``create_chat_model`` call must add to this list and pass the flag.
+忘记该标志会产生重复 span（一个以 graph 为根，一个以 model 为根），
+同时阻止 Langfuse handler 的 ``propagate_attributes`` 路径触发，
+导致 ``session_id`` / ``user_id`` 无法传递到 trace。
+当前四个调用位置为：bootstrap agent、default agent、summarization middleware
+以及 ``TitleMiddleware`` 内部的 async 路径。任何新的 in-graph ``create_chat_model``
+调用必须添加到上述列表并传递该标志。
 """
 
 import logging
@@ -48,7 +47,7 @@ logger = logging.getLogger(__name__)
 
 
 def _get_runtime_config(config: RunnableConfig) -> dict:
-    """Merge legacy configurable options with LangGraph runtime context."""
+    """将 legacy configurable options 与 LangGraph runtime context 合并。"""
     cfg = dict(config.get("configurable", {}) or {})
     context = config.get("context", {}) or {}
     if isinstance(context, dict):
@@ -57,7 +56,7 @@ def _get_runtime_config(config: RunnableConfig) -> dict:
 
 
 def _resolve_model_name(requested_model_name: str | None = None, *, app_config: AppConfig | None = None) -> str:
-    """Resolve a runtime model name safely, falling back to default if invalid. Returns None if no models are configured."""
+    """安全解析运行时 model name，若无效则回退到 default。若无 model 配置则返回 None。"""
     app_config = app_config or get_app_config()
     default_model_name = app_config.models[0].name if app_config.models else None
     if default_model_name is None:
@@ -72,14 +71,14 @@ def _resolve_model_name(requested_model_name: str | None = None, *, app_config: 
 
 
 def _create_summarization_middleware(*, app_config: AppConfig | None = None) -> DeerFlowSummarizationMiddleware | None:
-    """Create and configure the summarization middleware from config."""
+    """从配置创建并配置 summarization middleware。"""
     resolved_app_config = app_config or get_app_config()
     config = resolved_app_config.summarization
 
     if not config.enabled:
         return None
 
-    # Prepare trigger parameter
+    # 准备 trigger 参数
     trigger = None
     if config.trigger is not None:
         if isinstance(config.trigger, list):
@@ -87,24 +86,22 @@ def _create_summarization_middleware(*, app_config: AppConfig | None = None) -> 
         else:
             trigger = config.trigger.to_tuple()
 
-    # Prepare keep parameter
+    # 准备 keep 参数
     keep = config.keep.to_tuple()
 
-    # Prepare model parameter.
-    # Bind "middleware:summarize" tag so RunJournal identifies these LLM calls
-    # as middleware rather than lead_agent (SummarizationMiddleware is a
-    # LangChain built-in, so we tag the model at creation time).
-    # attach_tracing=False because the graph-level RunnableConfig (set in
-    # ``_make_lead_agent``) already carries tracing callbacks; binding them
-    # again at the model level would emit duplicate spans and break
-    # ``session_id`` / ``user_id`` propagation.
+    # 准备 model 参数
+    # 绑定 "middleware:summarize" tag 以便 RunJournal 将这些 LLM 调用识别为 middleware 而非 lead_agent
+    # （SummarizationMiddleware 是 LangChain 内置的，所以我们在创建 model 时打 tag）
+    # attach_tracing=False，因为 graph 级别的 RunnableConfig（在 ``_make_lead_agent`` 中设置）
+    # 已经携带了 tracing callbacks；在 model 级别再次绑定会产生重复 span，
+    # 并破坏 ``session_id`` / ``user_id`` 的传递
     if config.model_name:
         model = create_chat_model(name=config.model_name, thinking_enabled=False, app_config=resolved_app_config, attach_tracing=False)
     else:
         model = create_chat_model(thinking_enabled=False, app_config=resolved_app_config, attach_tracing=False)
     model = model.with_config(tags=["middleware:summarize"])
 
-    # Prepare kwargs
+    # 准备 kwargs
     kwargs = {
         "model": model,
         "trigger": trigger,
@@ -121,9 +118,8 @@ def _create_summarization_middleware(*, app_config: AppConfig | None = None) -> 
     if resolved_app_config.memory.enabled:
         hooks.append(memory_flush_hook)
 
-    # The logic below relies on two assumptions holding true: this factory is
-    # the sole entry point for DeerFlowSummarizationMiddleware, and the runtime
-    # config is not expected to change after startup.
+    # 以下逻辑基于两个假设：此工厂是 DeerFlowSummarizationMiddleware 的唯一入口，
+    # 且 runtime config 在启动后不会改变
     skills_container_path = resolved_app_config.skills.container_path or "/mnt/skills"
 
     return DeerFlowSummarizationMiddleware(
@@ -138,18 +134,18 @@ def _create_summarization_middleware(*, app_config: AppConfig | None = None) -> 
 
 
 def _create_todo_list_middleware(is_plan_mode: bool) -> TodoMiddleware | None:
-    """Create and configure the TodoList middleware.
+    """创建并配置 TodoList middleware。
 
     Args:
-        is_plan_mode: Whether to enable plan mode with TodoList middleware.
+        is_plan_mode: 是否启用 plan mode（启用 TodoList middleware）。
 
     Returns:
-        TodoMiddleware instance if plan mode is enabled, None otherwise.
+        若 plan mode 启用则返回 TodoMiddleware 实例，否则返回 None。
     """
     if not is_plan_mode:
         return None
 
-    # Custom prompts matching DeerFlow's style
+    # 符合 DeerFlow 风格的自定义 prompts
     system_prompt = """
 <todo_list_system>
 You have access to the `write_todos` tool to help you manage and track complex multi-step objectives.
@@ -252,16 +248,17 @@ Being proactive with task management demonstrates thoroughness and ensures all r
     return TodoMiddleware(system_prompt=system_prompt, tool_description=tool_description)
 
 
-# ThreadDataMiddleware must be before SandboxMiddleware to ensure thread_id is available
-# UploadsMiddleware should be after ThreadDataMiddleware to access thread_id
-# DanglingToolCallMiddleware patches missing ToolMessages before model sees the history
-# SummarizationMiddleware should be early to reduce context before other processing
-# TodoListMiddleware should be before ClarificationMiddleware to allow todo management
-# TitleMiddleware generates title after first exchange
-# MemoryMiddleware queues conversation for memory update (after TitleMiddleware)
-# ViewImageMiddleware should be before ClarificationMiddleware to inject image details before LLM
-# ToolErrorHandlingMiddleware should be before ClarificationMiddleware to convert tool exceptions to ToolMessages
-# ClarificationMiddleware should be last to intercept clarification requests after model calls
+# Middleware 顺序规则：
+# ThreadDataMiddleware 必须在 SandboxMiddleware 之前，以确保 thread_id 可用
+# UploadsMiddleware 应在 ThreadDataMiddleware 之后，以便访问 thread_id
+# DanglingToolCallMiddleware 在 model 看到历史记录之前修补缺失的 ToolMessages
+# SummarizationMiddleware 应尽早处理，以在其他处理之前减少 context
+# TodoListMiddleware 应在 ClarificationMiddleware 之前，以允许 todo 管理
+# TitleMiddleware 在首次交换后生成标题
+# MemoryMiddleware 将对话排队等待 memory 更新（在 TitleMiddleware 之后）
+# ViewImageMiddleware 应在 ClarificationMiddleware 之前，在 LLM 之前注入图像详情
+# ToolErrorHandlingMiddleware 应在 ClarificationMiddleware 之前，将工具异常转换为 ToolMessages
+# ClarificationMiddleware 应始终最后出现，以在 model 调用之后拦截澄清请求
 def _build_middlewares(
     config: RunnableConfig,
     model_name: str | None,
@@ -270,75 +267,75 @@ def _build_middlewares(
     *,
     app_config: AppConfig | None = None,
 ):
-    """Build middleware chain based on runtime configuration.
+    """基于运行时配置构建 middleware 链。
 
     Args:
-        config: Runtime configuration containing configurable options like is_plan_mode.
-        agent_name: If provided, MemoryMiddleware will use per-agent memory storage.
-        custom_middlewares: Optional list of custom middlewares to inject into the chain.
+        config: 包含 is_plan_mode 等 configurable options 的运行时配置。
+        agent_name: 若提供，MemoryMiddleware 将使用 per-agent memory 存储。
+        custom_middlewares: 要注入到链中的可选自定义 middleware 列表。
 
     Returns:
-        List of middleware instances.
+        middleware 实例列表。
     """
     resolved_app_config = app_config or get_app_config()
     middlewares = build_lead_runtime_middlewares(app_config=resolved_app_config, lazy_init=True)
 
-    # Always inject current date (and optionally memory) as <system-reminder> into the
-    # first HumanMessage to keep the system prompt fully static for prefix-cache reuse.
+    # 始终将当前日期（以及可选的 memory）作为 <system-reminder> 注入到第一个 HumanMessage，
+    # 以保持 system prompt 完全静态以便 prefix-cache 重用
     from deerflow.agents.middlewares.dynamic_context_middleware import DynamicContextMiddleware
 
     middlewares.append(DynamicContextMiddleware(agent_name=agent_name, app_config=resolved_app_config))
 
-    # Add summarization middleware if enabled
+    # 若启用则添加 summarization middleware
     summarization_middleware = _create_summarization_middleware(app_config=resolved_app_config)
     if summarization_middleware is not None:
         middlewares.append(summarization_middleware)
 
-    # Add TodoList middleware if plan mode is enabled
+    # 若启用 plan mode 则添加 TodoList middleware
     cfg = _get_runtime_config(config)
     is_plan_mode = cfg.get("is_plan_mode", False)
     todo_list_middleware = _create_todo_list_middleware(is_plan_mode)
     if todo_list_middleware is not None:
         middlewares.append(todo_list_middleware)
 
-    # Add TokenUsageMiddleware when token_usage tracking is enabled
+    # 若启用 token_usage 跟踪则添加 TokenUsageMiddleware
     if resolved_app_config.token_usage.enabled:
         middlewares.append(TokenUsageMiddleware())
 
-    # Add TitleMiddleware
+    # 添加 TitleMiddleware
     middlewares.append(TitleMiddleware(app_config=resolved_app_config))
 
-    # Add MemoryMiddleware (after TitleMiddleware)
+    # 添加 MemoryMiddleware（在 TitleMiddleware 之后）
     middlewares.append(MemoryMiddleware(agent_name=agent_name, memory_config=resolved_app_config.memory))
 
-    # Add ViewImageMiddleware only if the current model supports vision.
-    # Use the resolved runtime model_name from make_lead_agent to avoid stale config values.
+    # 仅当当前 model 支持 vision 时添加 ViewImageMiddleware
+    # 使用 make_lead_agent 中解析的运行时 model_name 以避免过时的 config 值
     model_config = resolved_app_config.get_model_config(model_name) if model_name else None
     if model_config is not None and model_config.supports_vision:
         middlewares.append(ViewImageMiddleware())
 
-    # Add DeferredToolFilterMiddleware to hide deferred tool schemas from model binding
+    # 添加 DeferredToolFilterMiddleware 以在 model binding 时隐藏 deferred tool schemas
     if resolved_app_config.tool_search.enabled:
         from deerflow.agents.middlewares.deferred_tool_filter_middleware import DeferredToolFilterMiddleware
 
         middlewares.append(DeferredToolFilterMiddleware())
 
-    # Add SubagentLimitMiddleware to truncate excess parallel task calls
+    # 添加 SubagentLimitMiddleware 以截断多余的并行 task 调用
     subagent_enabled = cfg.get("subagent_enabled", False)
     if subagent_enabled:
         max_concurrent_subagents = cfg.get("max_concurrent_subagents", 3)
         middlewares.append(SubagentLimitMiddleware(max_concurrent=max_concurrent_subagents))
 
-    # LoopDetectionMiddleware — detect and break repetitive tool call loops
+    # LoopDetectionMiddleware — 检测并中断重复的 tool call 循环
     loop_detection_config = resolved_app_config.loop_detection
     if loop_detection_config.enabled:
         middlewares.append(LoopDetectionMiddleware.from_config(loop_detection_config))
 
-    # Inject custom middlewares before ClarificationMiddleware
+    # 在 ClarificationMiddleware 之前注入自定义 middlewares
     if custom_middlewares:
         middlewares.extend(custom_middlewares)
 
-    # ClarificationMiddleware should always be last
+    # ClarificationMiddleware 应始终最后出现
     middlewares.append(ClarificationMiddleware())
     return middlewares
 
@@ -366,14 +363,14 @@ def _load_enabled_skills_for_tool_policy(available_skills: set[str] | None, *, a
 
 
 def make_lead_agent(config: RunnableConfig):
-    """LangGraph graph factory; keep the signature compatible with LangGraph Server."""
+    """LangGraph graph factory；保持与 LangGraph Server 兼容的签名。"""
     runtime_config = _get_runtime_config(config)
     runtime_app_config = runtime_config.get("app_config")
     return _make_lead_agent(config, app_config=runtime_app_config or get_app_config())
 
 
 def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
-    # Lazy import to avoid circular dependency
+    # 延迟导入以避免循环依赖
     from deerflow.tools import get_available_tools
     from deerflow.tools.builtins import setup_agent, update_agent
 
@@ -391,10 +388,10 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
 
     agent_config = load_agent_config(agent_name) if not is_bootstrap else None
     available_skills = _available_skill_names(agent_config, is_bootstrap)
-    # Custom agent model from agent config (if any), or None to let _resolve_model_name pick the default
+    # 若有自定义 agent model 配置则使用，否则 None 以让 _resolve_model_name 选择 default
     agent_model_name = agent_config.model if agent_config and agent_config.model else None
 
-    # Final model name resolution: request → agent config → global default, with fallback for unknown names
+    # 最终 model name 解析：request → agent config → global default，对于未知 name 进行回退
     model_name = _resolve_model_name(requested_model_name or agent_model_name, app_config=resolved_app_config)
 
     model_config = resolved_app_config.get_model_config(model_name)
@@ -416,7 +413,7 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
         max_concurrent_subagents,
     )
 
-    # Inject run metadata for LangSmith trace tagging
+    # 为 LangSmith trace tagging 注入 run metadata
     if "metadata" not in config:
         config["metadata"] = {}
 
@@ -433,12 +430,12 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
         }
     )
 
-    # Inject tracing callbacks at the graph invocation root so a single LangGraph
-    # run produces one trace with all node / LLM / tool calls as child spans,
-    # AND so the Langfuse handler sees ``on_chain_start(parent_run_id=None)`` and
-    # actually propagates ``langfuse_session_id`` / ``langfuse_user_id`` from
-    # ``config["metadata"]`` onto the trace. Without root-level attachment the
-    # model is a nested observation and the handler strips ``langfuse_*`` keys.
+    # 在 graph invocation root 注入 tracing callbacks，使单个 LangGraph run
+    # 产生一个 trace，所有 node / LLM / tool calls 作为子 spans，
+    # 同时使 Langfuse handler 能看到 ``on_chain_start(parent_run_id=None)``
+    # 并真正将 ``langfuse_session_id`` / ``langfuse_user_id`` 从
+    # ``config["metadata"]`` 传播到 trace。若不在 root 级别附加，
+    # model 将作为 nested observation，handler 会剥离 ``langfuse_*`` keys
     tracing_callbacks = build_tracing_callbacks()
     if tracing_callbacks:
         existing = config.get("callbacks") or []
@@ -449,7 +446,7 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
     skills_for_tool_policy = _load_enabled_skills_for_tool_policy(available_skills, app_config=resolved_app_config)
 
     if is_bootstrap:
-        # Special bootstrap agent with minimal prompt for initial custom agent creation flow
+        # 特殊的 bootstrap agent，用于初始自定义 agent 创建流程的 minimal prompt
         tools = get_available_tools(model_name=model_name, subagent_enabled=subagent_enabled, app_config=resolved_app_config) + [setup_agent]
         return create_agent(
             model=create_chat_model(name=model_name, thinking_enabled=thinking_enabled, app_config=resolved_app_config, attach_tracing=False),
@@ -464,10 +461,10 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
             state_schema=ThreadState,
         )
 
-    # Custom agents can update their own SOUL.md / config via update_agent.
-    # The default agent (no agent_name) does not see this tool.
+    # 自定义 agent 可通过 update_agent 更新自己的 SOUL.md / config
+    # 默认 agent（无 agent_name）看不到此 tool
     extra_tools = [update_agent] if agent_name else []
-    # Default lead agent (unchanged behavior)
+    # 默认 lead agent（行为不变）
     tools = get_available_tools(model_name=model_name, groups=agent_config.tool_groups if agent_config else None, subagent_enabled=subagent_enabled, app_config=resolved_app_config)
     return create_agent(
         model=create_chat_model(name=model_name, thinking_enabled=thinking_enabled, reasoning_effort=reasoning_effort, app_config=resolved_app_config, attach_tracing=False),

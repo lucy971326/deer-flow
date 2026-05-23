@@ -60,3 +60,10 @@ config.yaml.bak
 /frontend/playwright-report/
 .gstack/
 .worktrees
+
+
+
+
+
+# custom
+**/.logsearch/

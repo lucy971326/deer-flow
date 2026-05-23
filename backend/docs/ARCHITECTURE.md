@@ -1,8 +1,8 @@
-# Architecture Overview
+# 架构概述
 
-This document provides a comprehensive overview of the DeerFlow backend architecture.
+本文档提供 DeerFlow 后端架构的全面概览。
 
-## System Architecture
+## 系统架构
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
@@ -48,23 +48,23 @@ This document provides a comprehensive overview of the DeerFlow backend architec
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Component Details
+## 组件详情
 
 ### Gateway Embedded Agent Runtime
 
-The agent runtime is embedded in the FastAPI Gateway and built on LangGraph for robust multi-agent workflow orchestration. Nginx rewrites `/api/langgraph/*` to Gateway's native `/api/*` routes, so the public API remains compatible with LangGraph SDK clients without running a separate LangGraph server.
+Agent 运行时嵌入在 FastAPI Gateway 中，基于 LangGraph 构建，实现稳健的多 Agent 工作流编排。Nginx 将 `/api/langgraph/*` 重写为 Gateway 原生的 `/api/*` 路由，因此公开 API 与 LangGraph SDK 客户端保持兼容，无需运行独立的 LangGraph Server。
 
-**Entry Point**: `packages/harness/deerflow/agents/lead_agent/agent.py:make_lead_agent`
+**入口点**：`packages/harness/deerflow/agents/lead_agent/agent.py:make_lead_agent`
 
-**Key Responsibilities**:
-- Agent creation and configuration
-- Thread state management
-- Middleware chain execution
-- Tool execution orchestration
-- SSE streaming for real-time responses
+**核心职责**：
+- Agent 创建与配置
+- Thread state 管理
+- Middleware 链执行
+- Tool 执行编排
+- SSE 流式传输实时响应
 
-**Graph registry**: `langgraph.json` remains available for tooling, Studio, or direct LangGraph Server compatibility.
-It is not the default service entrypoint; scripts and Docker deployments run the Gateway embedded runtime.
+**Graph 注册表**：`langgraph.json` 仍可用于工具、Studio 或直接 LangGraph Server 兼容性。
+它不是默认的服务入口点；脚本和 Docker 部署运行 Gateway 嵌入式运行时。
 
 ```json
 {
@@ -77,23 +77,23 @@ It is not the default service entrypoint; scripts and Docker deployments run the
 
 ### Gateway API
 
-FastAPI application providing REST endpoints plus the public LangGraph-compatible `/api/langgraph/*` runtime routes.
+FastAPI 应用提供 REST 端点以及公开的 LangGraph-compatible `/api/langgraph/*` 运行时路由。
 
-**Entry Point**: `app/gateway/app.py`
+**入口点**：`app/gateway/app.py`
 
-**Routers**:
-- `models.py` - `/api/models` - Model listing and details
-- `thread_runs.py` / `runs.py` - `/api/threads/{id}/runs`, `/api/runs/*` - LangGraph-compatible runs and streaming
-- `mcp.py` - `/api/mcp` - MCP server configuration
-- `skills.py` - `/api/skills` - Skills management
-- `uploads.py` - `/api/threads/{id}/uploads` - File upload
-- `threads.py` - `/api/threads/{id}` - Local DeerFlow thread data cleanup after LangGraph deletion
-- `artifacts.py` - `/api/threads/{id}/artifacts` - Artifact serving
-- `suggestions.py` - `/api/threads/{id}/suggestions` - Follow-up suggestion generation
+**路由模块**：
+- `models.py` - `/api/models` - 模型列表与详情
+- `thread_runs.py` / `runs.py` - `/api/threads/{id}/runs`, `/api/runs/*` - LangGraph-compatible runs 与流式传输
+- `mcp.py` - `/api/mcp` - MCP server 配置
+- `skills.py` - `/api/skills` - Skills 管理
+- `uploads.py` - `/api/threads/{id}/uploads` - 文件上传
+- `threads.py` - `/api/threads/{id}` - LangGraph 删除后清理本地 DeerFlow thread 数据
+- `artifacts.py` - `/api/threads/{id}/artifacts` - Artifact 提供
+- `suggestions.py` - `/api/threads/{id}/suggestions` - 后续建议生成
 
-The web conversation delete flow first deletes Gateway-managed thread state through the LangGraph-compatible route, then the Gateway `threads.py` router removes DeerFlow-managed filesystem data via `Paths.delete_thread_dir()`.
+Web 对话删除流程首先通过 LangGraph-compatible 路由删除 Gateway 管理的 thread state，然后 Gateway `threads.py` 路由通过 `Paths.delete_thread_dir()` 删除 DeerFlow 管理的文件系统数据。
 
-### Agent Architecture
+### Agent 架构
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -128,7 +128,7 @@ The web conversation delete flow first deletes Gateway-managed thread state thro
 
 ### Thread State
 
-The `ThreadState` extends LangGraph's `AgentState` with additional fields:
+`ThreadState` 扩展 LangGraph 的 `AgentState`，包含额外字段：
 
 ```python
 class ThreadState(AgentState):
@@ -284,7 +284,7 @@ extensions_config.json:
 │       "env": {"GITHUB_TOKEN": "$GITHUB_TOKEN"}                          │
 │     }                                                                   │
 │   }                                                                     │
-│ }                                                                       │
+│ }                                                                        │
 └─────────────────────────────────────────────────────────────────────────┘
                                    │
                                    ▼

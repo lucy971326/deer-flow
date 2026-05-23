@@ -27,3 +27,4 @@ config.yaml
 # Claude Code settings
 .claude/settings.local.json
 .pytest_cache
+.logsearch

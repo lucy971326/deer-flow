@@ -1,21 +1,21 @@
 # API Reference
 
-This document provides a complete reference for the DeerFlow backend APIs.
+本文档提供 DeerFlow 后端 API 的完整参考。
 
-## Overview
+## 概述
 
-DeerFlow backend exposes two sets of APIs:
+DeerFlow 后端暴露两组 API：
 
-1. **LangGraph-compatible API** - Agent interactions, threads, and streaming (`/api/langgraph/*`)
-2. **Gateway API** - Models, MCP, skills, uploads, and artifacts (`/api/*`)
+1. **LangGraph-compatible API** - Agent 交互、threads 和流式传输 (`/api/langgraph/*`)
+2. **Gateway API** - Models、MCP、skills、uploads 和 artifacts (`/api/*`)
 
-All APIs are accessed through the Nginx reverse proxy at port 2026.
+所有 API 通过 Nginx 反向代理（端口 2026）访问。
 
 ## LangGraph-compatible API
 
 Base URL: `/api/langgraph`
 
-The public LangGraph-compatible API follows LangGraph SDK conventions. In the unified nginx deployment, Gateway owns `/api/langgraph/*` and translates those paths to its native `/api/*` run, thread, and streaming routers.
+公开的 LangGraph-compatible API 遵循 LangGraph SDK 约定。在统一的 nginx 部署中，Gateway 拥有 `/api/langgraph/*` 并将这些路径翻译为其原生的 `/api/*` run、thread 和 streaming 路由。
 
 ### Threads
 
@@ -67,7 +67,7 @@ GET /api/langgraph/threads/{thread_id}/state
 
 #### Create Run
 
-Execute the agent with input.
+执行 agent 并传入输入。
 
 ```http
 POST /api/langgraph/threads/{thread_id}/runs
@@ -98,22 +98,17 @@ Content-Type: application/json
 ```
 
 **Stream Mode Compatibility:**
-- Use: `values`, `messages-tuple`, `custom`, `updates`, `events`, `debug`, `tasks`, `checkpoints`
-- Do not use: `tools` (deprecated/invalid in current `langgraph-api` and will trigger schema validation errors)
+- 使用：`values`、`messages-tuple`、`custom`、`updates`、`events`、`debug`、`tasks`、`checkpoints`
+- 不使用：`tools`（deprecated/invalid in current `langgraph-api`，会触发 schema validation 错误）
 
 **Recursion Limit:**
 
-`config.recursion_limit` caps the number of graph steps LangGraph will execute
-in a single run. The unified Gateway path defaults to `100` in
-`build_run_config` (see `backend/app/gateway/services.py`), which is a safer
-starting point for plan-mode or subagent-heavy runs. Clients can still set
-`recursion_limit` explicitly in the request body; increase it if you run deeply
-nested subagent graphs.
+`config.recursion_limit` 限制 LangGraph 在单次 run 中执行的 graph steps 数量。统一 Gateway 路径在 `build_run_config`（见 `backend/app/gateway/services.py`）中默认为 `100`，这是 plan-mode 或 subagent-heavy runs 的更安全起点。客户端仍可以在请求体中显式设置 `recursion_limit`；如果运行深层嵌套 subagent graphs，可以增加。
 
 **Configurable Options:**
-- `model_name` (string): Override the default model
-- `thinking_enabled` (boolean): Enable extended thinking for supported models
-- `is_plan_mode` (boolean): Enable TodoList middleware for task tracking
+- `model_name` (string): 覆盖默认 model
+- `thinking_enabled` (boolean): 为支持的 models 启用 extended thinking
+- `is_plan_mode` (boolean): 启用 TodoList middleware 进行任务跟踪
 
 **Response:** Server-Sent Events (SSE) stream
 
@@ -149,14 +144,14 @@ GET /api/langgraph/threads/{thread_id}/runs
 
 #### Stream Run
 
-Stream responses in real-time.
+实时流式传输响应。
 
 ```http
 POST /api/langgraph/threads/{thread_id}/runs/stream
 Content-Type: application/json
 ```
 
-Same request body as Create Run. Returns SSE stream.
+请求体与 Create Run 相同。返回 SSE stream。
 
 ---
 
@@ -168,7 +163,7 @@ Base URL: `/api`
 
 #### List Models
 
-Get all available LLM models from configuration.
+从配置获取所有可用的 LLM models。
 
 ```http
 GET /api/models
@@ -222,7 +217,7 @@ GET /api/models/{model_name}
 
 #### Get MCP Config
 
-Get current MCP server configurations.
+获取当前 MCP server 配置。
 
 ```http
 GET /api/mcp/config
@@ -248,7 +243,7 @@ GET /api/mcp/config
 
 #### Update MCP Config
 
-Update MCP server configurations.
+更新 MCP server 配置。
 
 ```http
 PUT /api/mcp/config
@@ -285,7 +280,7 @@ Content-Type: application/json
 
 #### List Skills
 
-Get all available skills.
+获取所有可用的 skills。
 
 ```http
 GET /api/skills
@@ -365,7 +360,7 @@ POST /api/skills/{skill_name}/disable
 
 #### Install Skill
 
-Install a skill from a `.skill` file.
+从 `.skill` 文件安装 skill。
 
 ```http
 POST /api/skills/install
@@ -373,7 +368,7 @@ Content-Type: multipart/form-data
 ```
 
 **Request Body:**
-- `file`: The `.skill` file to install
+- `file`: 要安装的 `.skill` 文件
 
 **Response:**
 ```json
@@ -392,7 +387,7 @@ Content-Type: multipart/form-data
 
 #### Upload Files
 
-Upload one or more files to a thread.
+上传一个或多个文件到 thread。
 
 ```http
 POST /api/threads/{thread_id}/uploads
@@ -400,7 +395,9 @@ Content-Type: multipart/form-data
 ```
 
 **Request Body:**
-- `files`: One or more files to upload
+- `files`: 一个或多个文件
+
+网关在应用层限制上传规模，默认最多 10 个文件、单文件 50 MiB、单次请求总计 100 MiB。可通过 `config.yaml` 的 `uploads.max_files`、`uploads.max_file_size`、`uploads.max_total_size` 调整；前端会读取同一组限制并在选择文件时提示，超过限制时后端返回 `413 Payload Too Large`。
 
 **Response:**
 ```json
@@ -469,7 +466,7 @@ DELETE /api/threads/{thread_id}/uploads/{filename}
 
 ### Thread Cleanup
 
-Remove DeerFlow-managed local thread files under `.deer-flow/threads/{thread_id}` after the LangGraph thread itself has been deleted.
+在 LangGraph thread 本身被删除后，删除 DeerFlow 管理的本地 thread 文件（`.deer-flow/threads/{thread_id}`）。
 
 ```http
 DELETE /api/threads/{thread_id}
@@ -484,14 +481,14 @@ DELETE /api/threads/{thread_id}
 ```
 
 **Error behavior:**
-- `422` for invalid thread IDs
-- `500` returns a generic `{"detail": "Failed to delete local thread data."}` response while full exception details stay in server logs
+- 对无效 thread ID 返回 `422`
+- `500` 返回通用 `{"detail": "Failed to delete local thread data."}` 响应，同时完整异常详情保留在服务器日志
 
 ### Artifacts
 
 #### Get Artifact
 
-Download or view an artifact generated by the agent.
+下载或查看 agent 生成的 artifact。
 
 ```http
 GET /api/threads/{thread_id}/artifacts/{path}
@@ -502,7 +499,7 @@ GET /api/threads/{thread_id}/artifacts/{path}
 - `/api/threads/abc123/artifacts/mnt/user-data/uploads/document.pdf`
 
 **Query Parameters:**
-- `download` (boolean): If `true`, force download with Content-Disposition header
+- `download` (boolean): 如果为 `true`，强制使用 Content-Disposition header 下载
 
 **Response:** File content with appropriate Content-Type
 
@@ -510,7 +507,7 @@ GET /api/threads/{thread_id}/artifacts/{path}
 
 ## Error Responses
 
-All APIs return errors in a consistent format:
+所有 API 以一致格式返回错误：
 
 ```json
 {
@@ -528,34 +525,34 @@ All APIs return errors in a consistent format:
 
 ## Authentication
 
-DeerFlow enforces authentication for all non-public HTTP routes. Public routes are limited to health/docs metadata and these public auth endpoints:
+DeerFlow 对所有非公开 HTTP 路由强制认证。公开路由限于健康检查、文档和这些公开 auth 端点：
 
-- `POST /api/v1/auth/initialize` creates the first admin account when no admin exists.
-- `POST /api/v1/auth/login/local` logs in with email/password and sets an HttpOnly `access_token` cookie.
-- `POST /api/v1/auth/register` creates a regular `user` account and sets the session cookie.
-- `POST /api/v1/auth/logout` clears the session cookie.
-- `GET /api/v1/auth/setup-status` reports whether the first admin still needs to be created.
+- `POST /api/v1/auth/initialize` 在没有 admin 时创建第一个 admin 账户。
+- `POST /api/v1/auth/login/local` 用 email/password 登录并设置 HttpOnly `access_token` cookie。
+- `POST /api/v1/auth/register` 创建普通 `user` 账户并设置 session cookie。
+- `POST /api/v1/auth/logout` 清除 session cookie。
+- `GET /api/v1/auth/setup-status` 报告是否仍需创建第一个 admin。
 
-The authenticated auth endpoints are:
+已认证的 auth 端点：
 
-- `GET /api/v1/auth/me` returns the current user.
-- `POST /api/v1/auth/change-password` changes password, optionally changes email during setup, increments `token_version`, and reissues the cookie.
+- `GET /api/v1/auth/me` 返回当前用户。
+- `POST /api/v1/auth/change-password` 修改密码，可在 setup 期间选择性地更改 email，增量 `token_version` 并重新签发 cookie。
 
-Protected state-changing requests also require the CSRF double-submit token: send the `csrf_token` cookie value as the `X-CSRF-Token` header. Login/register/initialize/logout are bootstrap auth endpoints: they are exempt from the double-submit token but still reject hostile browser `Origin` headers.
+受保护的状态更改请求还需要 CSRF double-submit token：将 `csrf_token` cookie 值作为 `X-CSRF-Token` header 发送。login/register/initialize/logout 是 bootstrap auth 端点：它们免于 double-submit token，但仍拒绝 hostile browser `Origin` header。
 
-User isolation is enforced from the authenticated user context:
+用户隔离从认证用户上下文强制执行：
 
-- Thread metadata is scoped by `threads_meta.user_id`; search/read/write/delete APIs only expose the current user's threads.
-- Thread files live under `{base_dir}/users/{user_id}/threads/{thread_id}/user-data/` and are exposed inside the sandbox as `/mnt/user-data/`.
-- Memory and custom agents are stored under `{base_dir}/users/{user_id}/...`.
+- Thread metadata 按 `threads_meta.user_id` 作用域隔离；搜索/读取/写入/删除 API 只暴露当前用户的 threads。
+- Thread 文件位于 `{base_dir}/users/{user_id}/threads/{thread_id}/user-data/` 并在 sandbox 中作为 `/mnt/user-data/` 暴露。
+- Memory 和自定义 agents 存储在 `{base_dir}/users/{user_id}/...` 下。
 
-Note: MCP outbound connections can still use OAuth for configured HTTP/SSE MCP servers; that is separate from DeerFlow API authentication.
+注意：MCP 出站连接仍可为配置的 HTTP/SSE MCP servers 使用 OAuth；这与 DeerFlow API 认证分离。
 
 ---
 
 ## Rate Limiting
 
-No rate limiting is implemented by default. For production deployments, configure rate limiting in Nginx:
+默认未实现 rate limiting。对于生产部署，在 Nginx 中配置 rate limiting：
 
 ```nginx
 limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
@@ -570,7 +567,7 @@ location /api/ {
 
 ## Streaming Support
 
-Gateway's LangGraph-compatible API streams run events with Server-Sent Events (SSE):
+Gateway 的 LangGraph-compatible API 通过 Server-Sent Events (SSE) 流式传输 run 事件：
 
 ```http
 POST /api/langgraph/threads/{thread_id}/runs/stream

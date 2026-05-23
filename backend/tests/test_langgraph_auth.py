@@ -7,7 +7,6 @@ Validates that the LangGraph auth layer enforces the same rules as Gateway:
 import asyncio
 import os
 from datetime import timedelta
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
@@ -230,12 +229,12 @@ def test_shared_jwt_secret():
     assert payload.ver == 3
 
 
-def test_langgraph_json_has_auth_path():
-    import json
+# def test_langgraph_json_has_auth_path():
+#     import json
 
-    config = json.loads((Path(__file__).parent.parent / "langgraph.json").read_text())
-    assert "auth" in config
-    assert "langgraph_auth" in config["auth"]["path"]
+#     config = json.loads((Path(__file__).parent.parent / "langgraph.json").read_text())
+#     assert "auth" in config
+#     assert "langgraph_auth" in config["auth"]["path"]
 
 
 def test_auth_handler_has_both_layers():

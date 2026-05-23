@@ -1,6 +1,6 @@
 # TODO List
 
-## Completed Features
+## 已完成功能
 
 - [x] Launch the sandbox only after the first file system or bash tool is called
 - [x] Add Clarification Process for the whole process
@@ -13,7 +13,7 @@
 - [x] Skills system with SKILL.md format
 - [x] Replace `time.sleep(5)` with `asyncio.sleep()` in `packages/harness/deerflow/tools/builtins/task_tool.py` (subagent polling)
 
-## Planned Features
+## 计划功能
 
 - [ ] Pooling the sandbox resources to reduce the number of sandbox containers
 - [ ] Add authentication/authorization layer
@@ -28,7 +28,7 @@
   - Consider `asyncio.to_thread()` wrapper for remaining blocking file I/O
   - For production: use `langgraph up` (multi-worker) instead of `langgraph dev` (single-worker)
 
-## Resolved Issues
+## 已解决问题
 
 - [x] Make sure that no duplicated files in `state.artifacts`
 - [x] Long thinking but with empty content (answer inside thinking process)
