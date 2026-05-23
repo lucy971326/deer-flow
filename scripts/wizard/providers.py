@@ -105,31 +105,6 @@ LLM_PROVIDERS: list[LLMProvider] = [
         },
     ),
     LLMProvider(
-        name="vllm",
-        display_name="vLLM",
-        description="Self-hosted OpenAI-compatible serving",
-        use="deerflow.models.vllm_provider:VllmChatModel",
-        models=["Qwen/Qwen3-32B", "Qwen/Qwen2.5-Coder-32B-Instruct"],
-        default_model="Qwen/Qwen3-32B",
-        env_var="VLLM_API_KEY",
-        package=None,
-        extra_config={
-            "base_url": "http://localhost:8000/v1",
-            "request_timeout": 600.0,
-            "max_retries": 2,
-            "max_tokens": 8192,
-            "supports_thinking": True,
-            "supports_vision": False,
-            "when_thinking_enabled": {
-                "extra_body": {
-                    "chat_template_kwargs": {
-                        "enable_thinking": True,
-                    }
-                }
-            },
-        },
-    ),
-    LLMProvider(
         name="codex",
         display_name="Codex CLI",
         description="Uses Codex CLI local auth (~/.codex/auth.json)",
