@@ -12,88 +12,88 @@ except ImportError:
     TIKTOKEN_AVAILABLE = False
 
 # Prompt template for updating memory based on conversation
-MEMORY_UPDATE_PROMPT = """You are a memory management system. Your task is to analyze a conversation and update the user's memory profile.
+MEMORY_UPDATE_PROMPT = """你是一个 Memory 管理系统的角色任务是对对话进行分析并更新用户 Memory Profile。
 
-Current Memory State:
+当前 Memory 状态:
 <current_memory>
 {current_memory}
 </current_memory>
 
-New Conversation to Process:
+新对话内容:
 <conversation>
 {conversation}
 </conversation>
 
-Instructions:
-1. Analyze the conversation for important information about the user
-2. Extract relevant facts, preferences, and context with specific details (numbers, names, technologies)
-3. Update the memory sections as needed following the detailed length guidelines below
+操作指南:
+1. 分析对话中关于用户的重要信息
+2. 提取相关的事实、偏好和上下文，包含具体细节（数字、名称、技术）
+3. 按照以下详细的长度指南更新 Memory sections
 
-Before extracting facts, perform a structured reflection on the conversation:
-1. Error/Retry Detection: Did the agent encounter errors, require retries, or produce incorrect results?
-   If yes, record the root cause and correct approach as a high-confidence fact with category "correction".
-2. User Correction Detection: Did the user correct the agent's direction, understanding, or output?
-   If yes, record the correct interpretation or approach as a high-confidence fact with category "correction".
-   Include what went wrong in "sourceError" only when category is "correction" and the mistake is explicit in the conversation.
-3. Project Constraint Discovery: Were any project-specific constraints discovered during the conversation?
-   If yes, record them as facts with the most appropriate category and confidence.
+在提取事实之前，先对对话进行结构化反思：
+1. Error/Retry 检测: Agent 是否遇到了错误、需要重试或产生了错误结果？
+   如果是，请将根本原因和正确方法记录为高置信度事实，类别为 "correction"。
+2. User Correction 检测: 用户是否纠正了 Agent 的方向、理解或输出？
+   如果是，请将正确的理解或方法记录为高置信度事实，类别为 "correction"。
+   仅当类别为 "correction" 且错误在对话中明确时，才在 "sourceError" 中包含错误内容。
+3. Project Constraint 发现: 对话中是否发现了项目特定的约束？
+   如果是，请以最合适的类别和置信度将它们记录为事实。
 
 {correction_hint}
 
-Memory Section Guidelines:
+Memory Section 指南:
 
-**User Context** (Current state - concise summaries):
-- workContext: Professional role, company, key projects, main technologies (2-3 sentences)
-  Example: Core contributor, project names with metrics (16k+ stars), technical stack
-- personalContext: Languages, communication preferences, key interests (1-2 sentences)
-  Example: Bilingual capabilities, specific interest areas, expertise domains
-- topOfMind: Multiple ongoing focus areas and priorities (3-5 sentences, detailed paragraph)
-  Example: Primary project work, parallel technical investigations, ongoing learning/tracking
-  Include: Active implementation work, troubleshooting issues, market/research interests
-  Note: This captures SEVERAL concurrent focus areas, not just one task
+**User Context**（当前状态 - 简洁摘要）:
+- workContext: 专业角色、公司、关键项目、主要技术（2-3 句话）
+  示例: 核心贡献者、项目名称及指标（16k+ stars）、技术栈
+- personalContext: 语言、沟通偏好、关键兴趣（1-2 句话）
+  示例: 双语能力、特定兴趣领域、专业领域
+- topOfMind: 多个进行中的关注领域和优先级（3-5 句话，详细段落）
+  示例: 主要项目工作、并行技术调查、持续学习/追踪
+  包含: 活跃的实施工作、问题排查、市场/研究兴趣
+  注意: 这捕捉的是多个并发关注领域，而非单一任务
 
-**History** (Temporal context - rich paragraphs):
-- recentMonths: Detailed summary of recent activities (4-6 sentences or 1-2 paragraphs)
-  Timeline: Last 1-3 months of interactions
-  Include: Technologies explored, projects worked on, problems solved, interests demonstrated
-- earlierContext: Important historical patterns (3-5 sentences or 1 paragraph)
-  Timeline: 3-12 months ago
-  Include: Past projects, learning journeys, established patterns
-- longTermBackground: Persistent background and foundational context (2-4 sentences)
-  Timeline: Overall/foundational information
-  Include: Core expertise, longstanding interests, fundamental working style
+**History**（时序上下文 - 详细段落）:
+- recentMonths: 近期活动的详细摘要（4-6 句话或 1-2 段）
+  时间线: 最近 1-3 个月的交互
+  包含: 探索的技术、从事的项目、解决的问题、展示的兴趣
+- earlierContext: 重要的历史模式（3-5 句话或 1 段）
+  时间线: 3-12 个月前
+  包含: 过去的项目、学习历程、已建立的模式
+- longTermBackground: 持久背景和基础上下文（2-4 句话）
+  时间线: 整体/基础信息
+  包含: 核心专业知识、长期兴趣、基本工作风格
 
-**Facts Extraction**:
-- Extract specific, quantifiable details (e.g., "16k+ GitHub stars", "200+ datasets")
-- Include proper nouns (company names, project names, technology names)
-- Preserve technical terminology and version numbers
-- Categories:
-  * preference: Tools, styles, approaches user prefers/dislikes
-  * knowledge: Specific expertise, technologies mastered, domain knowledge
-  * context: Background facts (job title, projects, locations, languages)
-  * behavior: Working patterns, communication habits, problem-solving approaches
-  * goal: Stated objectives, learning targets, project ambitions
-  * correction: Explicit agent mistakes or user corrections, including the correct approach
-- Confidence levels:
-  * 0.9-1.0: Explicitly stated facts ("I work on X", "My role is Y")
-  * 0.7-0.8: Strongly implied from actions/discussions
-  * 0.5-0.6: Inferred patterns (use sparingly, only for clear patterns)
+**Facts 提取**:
+- 提取具体的、可量化的细节（例如："16k+ GitHub stars"、"200+ datasets"）
+- 包含专有名词（公司名称、项目名称、技术名称）
+- 保留技术术语和版本号
+- 类别:
+  * preference: 用户偏好/厌恶的工具、风格、方法
+  * knowledge: 特定专业知识、掌握的技术、领域知识
+  * context: 背景事实（职位、项目、地点、语言）
+  * behavior: 工作模式、沟通习惯、问题解决方法
+  * goal: 陈述的目标、学习目标、项目愿景
+  * correction: 明确的 Agent 错误或用户纠正，包括正确方法
+- 置信度级别:
+  * 0.9-1.0: 明确陈述的事实（"我从事 X"、"我的角色是 Y"）
+  * 0.7-0.8: 从行动/讨论中强烈暗示
+  * 0.5-0.6: 推断的模式（谨慎使用，仅用于明确的模式）
 
-**What Goes Where**:
-- workContext: Current job, active projects, primary tech stack
-- personalContext: Languages, personality, interests outside direct work tasks
-- topOfMind: Multiple ongoing priorities and focus areas user cares about recently (gets updated most frequently)
-  Should capture 3-5 concurrent themes: main work, side explorations, learning/tracking interests
-- recentMonths: Detailed account of recent technical explorations and work
-- earlierContext: Patterns from slightly older interactions still relevant
-- longTermBackground: Unchanging foundational facts about the user
+**分配到哪个 Section**:
+- workContext: 当前工作、活跃项目、主要技术栈
+- personalContext: 语言、个性、直接工作任务外的兴趣
+- topOfMind: 用户最近关心的多个进行中的优先级和关注领域（更新最频繁）
+  应捕捉 3-5 个并发主题: 主要工作、边栏探索、学习/追踪兴趣
+- recentMonths: 近期技术探索和工作的详细描述
+- earlierContext: 稍早的仍相关的交互模式
+- longTermBackground: 用户不变的基础事实
 
-**Multilingual Content**:
-- Preserve original language for proper nouns and company names
-- Keep technical terms in their original form (DeepSeek, LangGraph, etc.)
-- Note language capabilities in personalContext
+**多语言内容**:
+- 保留专有名词和公司名称的原始语言
+- 保持技术术语的原始形式（DeepSeek, LangGraph 等）
+- 在 personalContext 中注明语言能力
 
-Output Format (JSON):
+输出格式 (JSON):
 {{
   "user": {{
     "workContext": {{ "summary": "...", "shouldUpdate": true/false }},
@@ -111,53 +111,52 @@ Output Format (JSON):
   "factsToRemove": ["fact_id_1", "fact_id_2"]
 }}
 
-Important Rules:
-- Only set shouldUpdate=true if there's meaningful new information
-- Follow length guidelines: workContext/personalContext are concise (1-3 sentences), topOfMind and history sections are detailed (paragraphs)
-- Include specific metrics, version numbers, and proper nouns in facts
-- Only add facts that are clearly stated (0.9+) or strongly implied (0.7+)
-- Use category "correction" for explicit agent mistakes or user corrections; assign confidence >= 0.95 when the correction is explicit
-- Include "sourceError" only for explicit correction facts when the prior mistake or wrong approach is clearly stated; omit it otherwise
-- Remove facts that are contradicted by new information
-- When updating topOfMind, integrate new focus areas while removing completed/abandoned ones
-  Keep 3-5 concurrent focus themes that are still active and relevant
-- For history sections, integrate new information chronologically into appropriate time period
-- Preserve technical accuracy - keep exact names of technologies, companies, projects
-- Focus on information useful for future interactions and personalization
-- IMPORTANT: Do NOT record file upload events in memory. Uploaded files are
-  session-specific and ephemeral — they will not be accessible in future sessions.
-  Recording upload events causes confusion in subsequent conversations.
+重要规则:
+- 仅当有有意义的新信息时才设置 shouldUpdate=true
+- 遵循长度指南: workContext/personalContext 应简洁（1-3 句话），topOfMind 和 history sections 应详细（段落）
+- 在 facts 中包含具体指标、版本号和专有名词
+- 仅添加明确陈述（0.9+）或强烈暗示（0.7+）的事实
+- 对明确的 Agent 错误或用户纠正使用类别 "correction"；当纠正明确时分配置信度 >= 0.95
+- 仅当先前的错误或错误方法在对话中明确时才包含 "sourceError"；否则省略
+- 删除被新信息矛盾的事实
+- 更新 topOfMind 时，集成新的关注领域同时删除已完成/放弃的
+  保持 3-5 个仍活跃且相关的并发关注主题
+- 对于 history sections，将新信息按时间顺序集成到适当的时间段
+- 保持技术准确性 - 保留技术、公司、项目的准确名称
+- 专注于对未来交互和个人化有用的信息
+- 重要: 不要在 memory 中记录文件上传事件。上传的文件是会话特定的和临时的 — 它们在未来的会话中不可访问。
+  记录上传事件会导致后续对话中的混淆。
 
-Return ONLY valid JSON, no explanation or markdown."""
+只返回有效的 JSON，不需要解释或 markdown。"""
 
 
 # Prompt template for extracting facts from a single message
-FACT_EXTRACTION_PROMPT = """Extract factual information about the user from this message.
+FACT_EXTRACTION_PROMPT = """从这条消息中提取关于用户的事实信息。
 
-Message:
+消息:
 {message}
 
-Extract facts in this JSON format:
+按以下 JSON 格式提取事实:
 {{
   "facts": [
     {{ "content": "...", "category": "preference|knowledge|context|behavior|goal|correction", "confidence": 0.0-1.0 }}
   ]
 }}
 
-Categories:
-- preference: User preferences (likes/dislikes, styles, tools)
-- knowledge: User's expertise or knowledge areas
-- context: Background context (location, job, projects)
-- behavior: Behavioral patterns
-- goal: User's goals or objectives
-- correction: Explicit corrections or mistakes to avoid repeating
+类别:
+- preference: 用户偏好（喜欢/厌恶、风格、工具）
+- knowledge: 用户的专业知识或知识领域
+- context: 背景上下文（地点、工作、项目）
+- behavior: 行为模式
+- goal: 用户的目標或目的
+- correction: 明确的纠正或需要避免的错误
 
-Rules:
-- Only extract clear, specific facts
-- Confidence should reflect certainty (explicit statement = 0.9+, implied = 0.6-0.8)
-- Skip vague or temporary information
+规则:
+- 只提取明确、具体的事实
+- 置信度应反映确定性（明确陈述 = 0.9+，暗示 = 0.6-0.8）
+- 跳过模糊或临时信息
 
-Return ONLY valid JSON."""
+只返回有效的 JSON。"""
 
 
 def _count_tokens(text: str, encoding_name: str = "cl100k_base") -> int:
