@@ -1,8 +1,7 @@
-"""Abstract stream bridge protocol.
+"""StreamBridge 抽象协议。
 
-StreamBridge decouples agent workers (producers) from SSE endpoints
-(consumers), aligning with LangGraph Platform's Queue + StreamManager
-architecture.
+StreamBridge 将 Agent Worker（生产者）与 SSE 端点（消费者）解耦，
+对齐 LangGraph Platform 的 Queue + StreamManager 架构。
 """
 
 from __future__ import annotations
@@ -15,14 +14,12 @@ from typing import Any
 
 @dataclass(frozen=True)
 class StreamEvent:
-    """Single stream event.
+    """单个流事件。
 
     Attributes:
-        id: Monotonically increasing event ID (used as SSE ``id:`` field,
-            supports ``Last-Event-ID`` reconnection).
-        event: SSE event name, e.g. ``"metadata"``, ``"updates"``,
-            ``"events"``, ``"error"``, ``"end"``.
-        data: JSON-serialisable payload.
+        id: 递增的事件 ID（用于 SSE 的 ``id:`` 字段，支持 ``Last-Event-ID`` 断线重连）。
+        event: SSE 事件名称，如 ``"metadata"``、``"updates"``、``"events"``、``"error"``、``"end"``。
+        data: JSON 可序列化的负载。
     """
 
     id: str
@@ -35,15 +32,15 @@ END_SENTINEL = StreamEvent(id="", event="__end__", data=None)
 
 
 class StreamBridge(abc.ABC):
-    """Abstract base for stream bridges."""
+    """StreamBridge 抽象基类。"""
 
     @abc.abstractmethod
     async def publish(self, run_id: str, event: str, data: Any) -> None:
-        """Enqueue a single event for *run_id* (producer side)."""
+        """将单个事件加入 *run_id* 的队列（生产者端）。"""
 
     @abc.abstractmethod
     async def publish_end(self, run_id: str) -> None:
-        """Signal that no more events will be produced for *run_id*."""
+        """通知不再会有更多事件发往 *run_id*。"""
 
     @abc.abstractmethod
     def subscribe(
@@ -53,20 +50,19 @@ class StreamBridge(abc.ABC):
         last_event_id: str | None = None,
         heartbeat_interval: float = 15.0,
     ) -> AsyncIterator[StreamEvent]:
-        """Async iterator that yields events for *run_id* (consumer side).
+        """异步迭代器，逐个产出 *run_id* 的事件（消费者端）。
 
-        Yields :data:`HEARTBEAT_SENTINEL` when no event arrives within
-        *heartbeat_interval* seconds.  Yields :data:`END_SENTINEL` once
-        the producer calls :meth:`publish_end`.
+        若超过 *heartbeat_interval* 秒无新事件，产出 :data:`HEARTBEAT_SENTINEL`。
+        当生产者调用 :meth:`publish_end` 时，产出 :data:`END_SENTINEL`。
         """
 
     @abc.abstractmethod
     async def cleanup(self, run_id: str, *, delay: float = 0) -> None:
-        """Release resources associated with *run_id*.
+        """释放与 *run_id* 关联的资源。
 
-        If *delay* > 0 the implementation should wait before releasing,
-        giving late subscribers a chance to drain remaining events.
+        若 *delay* > 0，实现应等待一段时间后再释放，
+        以便迟到的订阅者有机会获取剩余事件。
         """
 
     async def close(self) -> None:
-        """Release backend resources.  Default is a no-op."""
+        """释放后端资源。默认是空操作。"""

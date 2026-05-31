@@ -1,4 +1,4 @@
-"""In-memory stream bridge backed by an in-process event log."""
+"""基于进程内事件日志的内存 StreamBridge。"""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class _RunStream:
+    """单个 Run 的事件流。"""
     events: list[StreamEvent] = field(default_factory=list)
     condition: asyncio.Condition = field(default_factory=asyncio.Condition)
     ended: bool = False
@@ -23,10 +24,10 @@ class _RunStream:
 
 
 class MemoryStreamBridge(StreamBridge):
-    """Per-run in-memory event log implementation.
+    """每个 Run 的内存事件日志实现。
 
-    Events are retained for a bounded time window per run so late subscribers
-    and reconnecting clients can replay buffered events from ``Last-Event-ID``.
+    每个 Run 的事件保留一段有限时间窗口，以便迟到订阅者和重连客户端
+    可以从 ``Last-Event-ID`` 位置回放缓冲的事件。
     """
 
     def __init__(self, *, queue_maxsize: int = 256) -> None:
@@ -97,7 +98,7 @@ class MemoryStreamBridge(StreamBridge):
             async with stream.condition:
                 if next_offset < stream.start_offset:
                     logger.warning(
-                        "subscriber for run %s fell behind retained buffer; resuming from offset %s",
+                        "run %s 的订阅者落后于保留缓冲区；从 offset %s 恢复",
                         run_id,
                         stream.start_offset,
                     )
