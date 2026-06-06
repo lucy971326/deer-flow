@@ -191,18 +191,18 @@ export const enUS: Translations = {
     newChat: "New chat",
     createPageTitle: "Design your Agent",
     createPageSubtitle:
-      "Describe the agent you want â€?I'll help you create it through conversation.",
+      "Describe the agent you want éˆ¥?I'll help you create it through conversation.",
     nameStepTitle: "Name your new Agent",
     nameStepHint:
-      "Letters, digits, and hyphens only â€?stored lowercase (e.g. code-reviewer)",
+      "Letters, digits, and hyphens only éˆ¥?stored lowercase (e.g. code-reviewer)",
     nameStepPlaceholder: "e.g. code-reviewer",
     nameStepContinue: "Continue",
     nameStepInvalidError:
-      "Invalid name â€?use only letters, digits, and hyphens",
+      "Invalid name éˆ¥?use only letters, digits, and hyphens",
     nameStepAlreadyExistsError: "An agent with this name already exists",
     nameStepNetworkError:
-      "Network request failed â€?check your network or backend connection",
-    nameStepCheckError: "Could not verify name availability â€?please try again",
+      "Network request failed éˆ¥?check your network or backend connection",
+    nameStepCheckError: "Could not verify name availability éˆ¥?please try again",
     nameStepApiDisabledError:
       "Custom agent management is not enabled on this server. Please contact your administrator.",
     nameStepBootstrapMessage:

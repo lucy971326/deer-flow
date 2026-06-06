@@ -104,7 +104,6 @@ services:
     environment:
       - NODE_ENV=development
       - WATCHPACK_POLLING=true
-      - CI=true
       - DEER_FLOW_INTERNAL_GATEWAY_BASE_URL=http://gateway:8001
     env_file:
       - ../frontend/.env
