@@ -55,14 +55,13 @@ export const enUS: Translations = {
   // Home
   home: {
     docs: "Docs",
-    blog: "Blog",
   },
 
   // Welcome
   welcome: {
     greeting: "Hello, again!",
     description:
-      "Welcome to 🦌 DeerFlow, an open source super agent. With built-in and custom skills, DeerFlow helps you search on the web, analyze data, and generate artifacts like slides, web pages and do almost anything.",
+      "Welcome to 🦌 OpenAgent, an open source super agent. With built-in and custom skills, OpenAgent helps you search on the web, analyze data, and generate artifacts like slides, web pages and do almost anything.",
 
     createYourOwnSkill: "Create Your Own Skill",
     createYourOwnSkillDescription:

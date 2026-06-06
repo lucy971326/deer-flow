@@ -41,12 +41,6 @@ export async function Header({ className, homeURL, locale }: HeaderProps) {
         >
           {t.home.docs}
         </Link>
-        <Link
-          href="/blog/posts"
-          className="text-secondary-foreground hover:text-foreground transition-colors"
-        >
-          {t.home.blog}
-        </Link>
       </nav>
       <div className="relative">
         <div
